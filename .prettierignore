@@ -5,5 +5,14 @@ yarn.lock
 bun.lock
 bun.lockb
 
+# Agent/tooling workspaces
+.agents/
+.openai/
+.claude/
+
+# Generated files
+src/convex/_generated/
+convex/_generated/
+
 # Miscellaneous
 /static/
