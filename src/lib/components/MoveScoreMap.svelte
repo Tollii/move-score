@@ -2,9 +2,231 @@
 	import { onMount } from 'svelte';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type maplibregl from 'maplibre-gl';
+	import type { StyleSpecification } from 'maplibre-gl';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '../../convex/_generated/api';
 	import type { GeonorgeAddress } from '$lib/geonorge/address';
+
+	// Amber-on-black tactical style using OpenFreeMap vector tiles (OpenMapTiles schema)
+	const SENTINEL_STYLE: StyleSpecification = {
+		version: 8,
+		sources: {
+			openmaptiles: {
+				type: 'vector',
+				url: 'https://tiles.openfreemap.org/planet'
+			}
+		},
+		glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+		layers: [
+			// ── Base ─────────────────────────────────────────────────────
+			{
+				id: 'background',
+				type: 'background',
+				paint: { 'background-color': '#090908' }
+			},
+			// ── Water ────────────────────────────────────────────────────
+			{
+				id: 'water-fill',
+				type: 'fill',
+				source: 'openmaptiles',
+				'source-layer': 'water',
+				paint: { 'fill-color': '#060c08' }
+			},
+			{
+				id: 'waterway',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'waterway',
+				paint: { 'line-color': '#0f1a0e', 'line-width': 1 }
+			},
+			// ── Land ─────────────────────────────────────────────────────
+			{
+				id: 'landcover',
+				type: 'fill',
+				source: 'openmaptiles',
+				'source-layer': 'landcover',
+				paint: { 'fill-color': '#0b0c08', 'fill-opacity': 0.7 }
+			},
+			{
+				id: 'landuse',
+				type: 'fill',
+				source: 'openmaptiles',
+				'source-layer': 'landuse',
+				paint: { 'fill-color': '#0e0d09', 'fill-opacity': 0.5 }
+			},
+			// ── Buildings (outline only, SentinelMapper style) ────────────
+			{
+				id: 'building-fill',
+				type: 'fill',
+				source: 'openmaptiles',
+				'source-layer': 'building',
+				minzoom: 14,
+				paint: { 'fill-color': '#0f0c07', 'fill-opacity': 0.9 }
+			},
+			{
+				id: 'building-outline',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'building',
+				minzoom: 14,
+				paint: { 'line-color': '#2e1c00', 'line-width': 0.6 }
+			},
+			// ── Roads — darkest to brightest ─────────────────────────────
+			{
+				id: 'road-path',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['in', 'class', 'path', 'footway', 'cycleway', 'track'],
+				minzoom: 14,
+				paint: {
+					'line-color': '#1e1200',
+					'line-width': 0.5,
+					'line-dasharray': [3, 2]
+				}
+			},
+			{
+				id: 'road-service',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['in', 'class', 'service'],
+				minzoom: 13,
+				paint: { 'line-color': '#261700', 'line-width': 0.7 }
+			},
+			{
+				id: 'road-minor',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['in', 'class', 'minor', 'unclassified', 'residential'],
+				paint: {
+					'line-color': '#3a2400',
+					'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.7, 16, 1.8]
+				}
+			},
+			{
+				id: 'road-tertiary',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['==', 'class', 'tertiary'],
+				paint: {
+					'line-color': '#5c3900',
+					'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 14, 2, 16, 3.5]
+				}
+			},
+			{
+				id: 'road-secondary',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['==', 'class', 'secondary'],
+				paint: {
+					'line-color': '#7d5000',
+					'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1, 13, 2.5, 16, 4.5]
+				}
+			},
+			{
+				id: 'road-primary',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['in', 'class', 'primary', 'trunk'],
+				paint: {
+					'line-color': '#b07200',
+					'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.2, 12, 3, 16, 6]
+				}
+			},
+			{
+				id: 'road-motorway',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['==', 'class', 'motorway'],
+				paint: {
+					'line-color': '#ffaa00',
+					'line-width': ['interpolate', ['linear'], ['zoom'], 6, 1, 12, 3.5, 16, 7]
+				}
+			},
+			// ── Rail ─────────────────────────────────────────────────────
+			{
+				id: 'rail',
+				type: 'line',
+				source: 'openmaptiles',
+				'source-layer': 'transportation',
+				filter: ['in', 'class', 'rail', 'transit'],
+				paint: {
+					'line-color': '#2a1a00',
+					'line-width': 1,
+					'line-dasharray': [5, 3]
+				}
+			},
+			// ── Labels ───────────────────────────────────────────────────
+			{
+				id: 'label-city',
+				type: 'symbol',
+				source: 'openmaptiles',
+				'source-layer': 'place',
+				filter: ['in', 'class', 'city', 'town'],
+				layout: {
+					'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']],
+					'text-font': ['Noto Sans Bold'],
+					'text-size': ['interpolate', ['linear'], ['zoom'], 8, 11, 14, 15],
+					'text-transform': 'uppercase',
+					'text-letter-spacing': 0.1,
+					'text-max-width': 8
+				},
+				paint: {
+					'text-color': 'rgba(255,179,0,0.75)',
+					'text-halo-color': 'rgba(9,9,8,0.95)',
+					'text-halo-width': 1.5
+				}
+			},
+			{
+				id: 'label-suburb',
+				type: 'symbol',
+				source: 'openmaptiles',
+				'source-layer': 'place',
+				minzoom: 12,
+				filter: ['in', 'class', 'suburb', 'village', 'hamlet', 'neighbourhood'],
+				layout: {
+					'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']],
+					'text-font': ['Noto Sans Regular'],
+					'text-size': ['interpolate', ['linear'], ['zoom'], 12, 9, 16, 12],
+					'text-transform': 'uppercase',
+					'text-letter-spacing': 0.12,
+					'text-max-width': 8
+				},
+				paint: {
+					'text-color': 'rgba(255,179,0,0.45)',
+					'text-halo-color': 'rgba(9,9,8,0.95)',
+					'text-halo-width': 1
+				}
+			},
+			{
+				id: 'label-road',
+				type: 'symbol',
+				source: 'openmaptiles',
+				'source-layer': 'transportation_name',
+				minzoom: 14,
+				layout: {
+					'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']],
+					'text-font': ['Noto Sans Regular'],
+					'text-size': 9,
+					'text-transform': 'uppercase',
+					'text-letter-spacing': 0.08,
+					'symbol-placement': 'line',
+					'text-max-angle': 30
+				},
+				paint: {
+					'text-color': 'rgba(255,179,0,0.35)',
+					'text-halo-color': 'rgba(9,9,8,0.9)',
+					'text-halo-width': 1
+				}
+			}
+		]
+	};
 
 	type Props = {
 		selectedAddress?: GeonorgeAddress;
@@ -38,10 +260,10 @@
 	const client = useConvexClient();
 
 	const WALK_BANDS = [
-		{ minutes: 5, color: '#0f766e', label: '0-5 minutter' },
-		{ minutes: 10, color: '#22c55e', label: '5-10 minutter' },
-		{ minutes: 15, color: '#eab308', label: '10-15 minutter' },
-		{ minutes: 20, color: '#ef4444', label: '15-20 minutter' }
+		{ minutes: 5, color: '#ffcc00', label: '0–5 MIN' },
+		{ minutes: 10, color: '#ff8800', label: '5–10 MIN' },
+		{ minutes: 15, color: '#ff4400', label: '10–15 MIN' },
+		{ minutes: 20, color: '#cc1100', label: '15–20 MIN' }
 	];
 
 	onMount(() => {
@@ -56,12 +278,12 @@
 
 			map = new maplibre.default.Map({
 				container: mapEl,
-				style: 'https://tiles.openfreemap.org/styles/positron',
+				style: SENTINEL_STYLE,
 				center: [10.7522, 59.9139],
 				zoom: 11
 			});
 
-			marker = new maplibre.default.Marker({ color: '#0f766e' });
+			marker = new maplibre.default.Marker({ color: '#ffb300' });
 			map.on('load', () => {
 				mapReady = true;
 			});
@@ -137,8 +359,8 @@
 			loadedIsochroneKey = '';
 			clearIsochroneLayers();
 			errorMessage = isRateLimitError(error)
-				? 'Mapbox har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes senere.'
-				: 'Kunne ikke hente gangavstand for valgt adresse.';
+				? 'RATE LIMIT: FORSØK IGJEN SENERE'
+				: 'FEIL: KUNNE IKKE HENTE GANGAVSTAND';
 		} finally {
 			if (activeRequestKey === requestKey) {
 				isochroneLoading = false;
@@ -163,7 +385,7 @@
 				source: id,
 				paint: {
 					'fill-color': color,
-					'fill-opacity': 0.35,
+					'fill-opacity': 0.3,
 					'fill-outline-color': color
 				}
 			});
@@ -239,52 +461,222 @@
 	}
 </script>
 
-<div class="relative min-h-[480px] overflow-hidden rounded-md border border-zinc-200 bg-zinc-100">
-	<div bind:this={mapEl} class="h-[480px] w-full"></div>
+<div class="map-container">
+	<div bind:this={mapEl} class="map-canvas"></div>
 
-	<div
-		class="absolute top-4 left-4 max-w-sm rounded-md bg-white/95 p-3 text-sm text-zinc-900 shadow-sm"
-	>
-		{#if selectedAddress}
-			<p class="font-medium">{selectedAddress.adressetekst}</p>
-			<p class="mt-1 text-zinc-600">
-				{selectedAddress.postnummer}
-				{selectedAddress.poststed}
-			</p>
-			<button
-				type="button"
-				class="mt-3 rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
-				disabled={isochroneLoading || !origin}
-				onclick={showWalkIsochrone}
-			>
-				{isochroneLoading ? 'Henter gangavstand...' : 'Vis gangavstand'}
-			</button>
-			{#if isochroneLoading}
-				<p class="mt-2 text-zinc-600">Henter gangavstand...</p>
+	<div class="overlay-panel overlay-tl">
+		<div class="panel-header">[ TARGET ]</div>
+		<div class="panel-body">
+			{#if selectedAddress}
+				<p class="target-address">{selectedAddress.adressetekst}</p>
+				<p class="target-location">{selectedAddress.postnummer} {selectedAddress.poststed}</p>
+				<button
+					type="button"
+					class="action-btn"
+					class:action-btn--loading={isochroneLoading}
+					disabled={isochroneLoading || !origin}
+					onclick={showWalkIsochrone}
+				>
+					{isochroneLoading ? '[ HENTER... ]' : '[ VIS GANGAVSTAND ]'}
+				</button>
+				{#if errorMessage}
+					<p class="error-text">{errorMessage}</p>
+				{/if}
+			{:else}
+				<p class="no-target">INGEN TARGET VALGT</p>
+				<p class="hint-text">Velg adresse i venstre panel</p>
 			{/if}
-			{#if errorMessage}
-				<p class="mt-2 text-red-700">{errorMessage}</p>
-			{/if}
-		{:else}
-			<p class="font-medium">Velg en adresse</p>
-			<p class="mt-1 text-zinc-600">Kartet flyttes hit når du velger et søkeresultat.</p>
-		{/if}
+		</div>
 	</div>
 
-	<div
-		class="absolute right-4 bottom-4 left-4 rounded-md bg-white/95 p-4 text-sm text-zinc-900 shadow-sm md:left-auto md:max-w-sm"
-	>
-		<ul class="mt-3 grid gap-2" aria-label="Forklaring av gangringer">
-			{#each WALK_BANDS as band (band.minutes)}
-				<li class="flex items-center gap-2">
-					<span
-						class="h-3 w-3 shrink-0 rounded-full"
-						style:background-color={band.color}
-						aria-hidden="true"
-					></span>
-					<span>{band.label}</span>
-				</li>
-			{/each}
-		</ul>
+	<div class="overlay-panel overlay-br">
+		<div class="panel-header">[ REKKEVIDDE ]</div>
+		<div class="panel-body">
+			<ul class="legend-list">
+				{#each WALK_BANDS as band (band.minutes)}
+					<li class="legend-item">
+						<span class="legend-swatch" style:background-color={band.color}></span>
+						<span class="legend-label">{band.label}</span>
+					</li>
+				{/each}
+			</ul>
+		</div>
 	</div>
 </div>
+
+<style>
+	.map-container {
+		position: relative;
+		height: 100%;
+		width: 100%;
+		background: #090908;
+		overflow: hidden;
+	}
+
+	.map-canvas {
+		height: 100%;
+		width: 100%;
+	}
+
+	/* Override MapLibre attribution styling to match theme */
+	:global(.maplibregl-ctrl-attrib) {
+		background: rgba(9, 9, 8, 0.85) !important;
+		color: rgba(255, 179, 0, 0.3) !important;
+		font-family: 'Share Tech Mono', monospace !important;
+		font-size: 9px !important;
+		border-radius: 0 !important;
+	}
+
+	:global(.maplibregl-ctrl-attrib a) {
+		color: rgba(255, 179, 0, 0.4) !important;
+	}
+
+	:global(.maplibregl-ctrl-logo) {
+		opacity: 0.4 !important;
+		filter: invert(1) sepia(1) saturate(2) hue-rotate(-10deg) !important;
+	}
+
+	.overlay-panel {
+		position: absolute;
+		background: rgba(9, 9, 8, 0.94);
+		border: 1px solid rgba(255, 179, 0, 0.4);
+		font-family: 'Share Tech Mono', 'Courier New', monospace;
+		min-width: 190px;
+		max-width: 260px;
+		backdrop-filter: blur(4px);
+		z-index: 5;
+	}
+
+	.overlay-tl {
+		top: 12px;
+		right: 12px;
+	}
+
+	.overlay-br {
+		bottom: 28px;
+		right: 12px;
+	}
+
+	.panel-header {
+		padding: 5px 10px;
+		border-bottom: 1px solid rgba(255, 179, 0, 0.3);
+		font-size: 9px;
+		letter-spacing: 0.22em;
+		color: rgba(255, 179, 0, 0.8);
+		background: rgba(255, 179, 0, 0.06);
+	}
+
+	.panel-body {
+		padding: 10px;
+	}
+
+	.target-address {
+		font-size: 12px;
+		color: #ffcc00;
+		letter-spacing: 0.04em;
+		line-height: 1.3;
+		margin: 0;
+	}
+
+	.target-location {
+		margin: 3px 0 0;
+		font-size: 10px;
+		color: rgba(255, 179, 0, 0.5);
+		letter-spacing: 0.08em;
+	}
+
+	.action-btn {
+		margin-top: 10px;
+		display: block;
+		width: 100%;
+		padding: 7px 10px;
+		background: transparent;
+		border: 1px solid rgba(255, 179, 0, 0.4);
+		color: #ffb300;
+		font-family: 'Share Tech Mono', monospace;
+		font-size: 10px;
+		letter-spacing: 0.15em;
+		cursor: pointer;
+		transition:
+			border-color 0.15s,
+			background 0.15s,
+			color 0.15s;
+		border-radius: 0;
+		text-align: center;
+	}
+
+	.action-btn:hover:not(:disabled) {
+		border-color: rgba(255, 179, 0, 0.85);
+		background: rgba(255, 179, 0, 0.08);
+		color: #ffcc00;
+	}
+
+	.action-btn:disabled {
+		border-color: rgba(255, 179, 0, 0.15);
+		color: rgba(255, 179, 0, 0.3);
+		cursor: not-allowed;
+	}
+
+	.action-btn--loading {
+		animation: blink 1.2s ease-in-out infinite;
+	}
+
+	@keyframes blink {
+		0%,
+		100% {
+			opacity: 0.45;
+		}
+		50% {
+			opacity: 1;
+		}
+	}
+
+	.error-text {
+		margin-top: 8px;
+		font-size: 9px;
+		color: #cc2200;
+		letter-spacing: 0.06em;
+		line-height: 1.4;
+	}
+
+	.no-target {
+		font-size: 11px;
+		color: rgba(255, 179, 0, 0.75);
+		letter-spacing: 0.08em;
+		margin: 0;
+	}
+
+	.hint-text {
+		margin: 4px 0 0;
+		font-size: 9px;
+		color: rgba(255, 179, 0, 0.55);
+		letter-spacing: 0.06em;
+		line-height: 1.5;
+	}
+
+	.legend-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 6px;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.legend-swatch {
+		width: 10px;
+		height: 10px;
+		flex-shrink: 0;
+	}
+
+	.legend-label {
+		font-size: 10px;
+		color: rgba(255, 179, 0, 0.85);
+		letter-spacing: 0.12em;
+	}
+</style>

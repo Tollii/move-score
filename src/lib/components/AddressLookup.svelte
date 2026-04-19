@@ -17,7 +17,7 @@
 
 	let {
 		defaultQuery = '',
-		placeholder = 'Søk etter adresse',
+		placeholder = 'SØK ADRESSE...',
 		minLength = 2,
 		debounceMs = 250,
 		treffPerSide = 8,
@@ -93,7 +93,7 @@
 
 				addresses = [];
 				metadata = undefined;
-				errorMessage = 'Kunne ikke hente adresser akkurat nå.';
+				errorMessage = 'FEIL: KUNNE IKKE HENTE ADRESSER';
 			} finally {
 				if (!controller.signal.aborted) {
 					loading = false;
@@ -132,7 +132,7 @@
 		const point = address.representasjonspunkt;
 
 		if (!point) {
-			return 'Ingen koordinater';
+			return 'INGEN KOORDINATER';
 		}
 
 		return `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)} ${point.epsg ?? ''}`.trim();
@@ -153,59 +153,232 @@
 	}
 </script>
 
-<section class="w-full max-w-2xl">
-	<label class="block text-sm font-medium text-zinc-900" for="address-lookup">Adresse</label>
-	<div class="relative mt-2">
+<section class="lookup">
+	<label class="lookup-label" for="address-lookup">TARGET DESIGNATION</label>
+	<div class="input-wrapper">
 		<input
 			id="address-lookup"
 			type="search"
-			class="w-full rounded-md border-zinc-300 bg-white px-4 py-3 text-base text-zinc-950 shadow-sm transition outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/30"
+			class="lookup-input"
 			{placeholder}
 			autocomplete="street-address"
 			bind:value={query}
 		/>
 		{#if loading}
-			<div class="absolute top-1/2 right-3 -translate-y-1/2 text-sm text-zinc-500">Søker...</div>
+			<div class="loading-indicator">SØKER...</div>
 		{/if}
 	</div>
 
 	{#if errorMessage}
-		<p class="mt-2 text-sm text-red-700">{errorMessage}</p>
+		<p class="error-text">{errorMessage}</p>
 	{:else if query.trim().length > 0 && query.trim().length < minLength}
-		<p class="mt-2 text-sm text-zinc-600">Skriv minst {minLength} tegn.</p>
+		<p class="hint-text">MIN {minLength} TEGN PÅKREVD</p>
 	{/if}
 
 	{#if addresses.length > 0}
-		<div class="mt-3 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
-			<div
-				class="border-b border-zinc-200 px-4 py-2 text-xs font-medium tracking-wide text-zinc-500 uppercase"
-			>
-				{metadata?.totaltAntallTreff ?? addresses.length} treff
+		<div class="results-panel">
+			<div class="results-header">
+				{metadata?.totaltAntallTreff ?? addresses.length} TREFF
 			</div>
-			<ul class="divide-y divide-zinc-200">
+			<ul class="results-list">
 				{#each addresses as address (addressKey(address))}
 					<li>
-						<button
-							type="button"
-							class="block w-full px-4 py-3 text-left transition hover:bg-teal-50 focus:bg-teal-50 focus:outline-none"
-							onclick={() => selectAddress(address)}
-						>
-							<span class="block font-medium text-zinc-950">{formatAddress(address)}</span>
-							<span class="mt-1 block text-sm text-zinc-600">{formatCoordinates(address)}</span>
+						<button type="button" class="result-btn" onclick={() => selectAddress(address)}>
+							<span class="result-address">{formatAddress(address)}</span>
+							<span class="result-coords">{formatCoordinates(address)}</span>
 						</button>
 					</li>
 				{/each}
 			</ul>
 		</div>
 	{:else if query.trim().length >= minLength && !loading && !errorMessage}
-		<p class="mt-2 text-sm text-zinc-600">Ingen adresser funnet.</p>
+		<p class="hint-text">INGEN TREFF</p>
 	{/if}
 
 	{#if selectedAddress}
-		<div class="mt-4 rounded-md border border-teal-700 bg-teal-50 p-4 text-sm text-teal-950">
-			<p class="font-medium">Valgt adresse</p>
-			<p class="mt-1">{selectedAddressLabel}</p>
-			<p class="mt-1">{formatCoordinates(selectedAddress)}</p>
+		<div class="selected-panel">
+			<p class="selected-label">◈ VALGT TARGET</p>
+			<p class="selected-address">{selectedAddressLabel}</p>
+			<p class="selected-coords">{formatCoordinates(selectedAddress)}</p>
 		</div>
 	{/if}
 </section>
+
+<style>
+	.lookup {
+		width: 100%;
+		font-family: 'Share Tech Mono', 'Courier New', monospace;
+	}
+
+	.lookup-label {
+		display: block;
+		font-size: 9px;
+		letter-spacing: 0.2em;
+		color: rgba(255, 179, 0, 0.7);
+		margin-bottom: 6px;
+	}
+
+	.input-wrapper {
+		position: relative;
+	}
+
+	.lookup-input {
+		width: 100%;
+		background: #141410;
+		border: 1px solid rgba(255, 179, 0, 0.3);
+		color: #ffb300;
+		font-family: 'Share Tech Mono', 'Courier New', monospace;
+		font-size: 11px;
+		padding: 8px 10px;
+		outline: none;
+		letter-spacing: 0.05em;
+		border-radius: 0;
+		transition:
+			border-color 0.15s,
+			box-shadow 0.15s;
+		-webkit-appearance: none;
+		appearance: none;
+	}
+
+	.lookup-input:focus {
+		border-color: rgba(255, 179, 0, 0.7);
+		box-shadow:
+			0 0 0 1px rgba(255, 179, 0, 0.12),
+			0 0 10px rgba(255, 179, 0, 0.06);
+	}
+
+	.lookup-input::placeholder {
+		color: rgba(255, 179, 0, 0.2);
+		letter-spacing: 0.08em;
+	}
+
+	.lookup-input::-webkit-search-cancel-button,
+	.lookup-input::-webkit-search-decoration {
+		-webkit-appearance: none;
+	}
+
+	.loading-indicator {
+		position: absolute;
+		top: 50%;
+		right: 10px;
+		transform: translateY(-50%);
+		font-size: 9px;
+		color: rgba(255, 179, 0, 0.45);
+		letter-spacing: 0.18em;
+		animation: blink 1.2s ease-in-out infinite;
+		pointer-events: none;
+	}
+
+	@keyframes blink {
+		0%,
+		100% {
+			opacity: 0.3;
+		}
+		50% {
+			opacity: 1;
+		}
+	}
+
+	.error-text {
+		margin-top: 6px;
+		font-size: 9px;
+		color: #cc2200;
+		letter-spacing: 0.1em;
+	}
+
+	.hint-text {
+		margin-top: 6px;
+		font-size: 9px;
+		color: rgba(255, 179, 0, 0.55);
+		letter-spacing: 0.12em;
+	}
+
+	.results-panel {
+		margin-top: 4px;
+		border: 1px solid rgba(255, 179, 0, 0.35);
+		background: #0e0e0a;
+	}
+
+	.results-header {
+		padding: 4px 10px;
+		font-size: 9px;
+		letter-spacing: 0.2em;
+		color: rgba(255, 179, 0, 0.6);
+		border-bottom: 1px solid rgba(255, 179, 0, 0.2);
+	}
+
+	.results-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		max-height: 220px;
+		overflow-y: auto;
+	}
+
+	.result-btn {
+		display: block;
+		width: 100%;
+		padding: 7px 10px;
+		text-align: left;
+		background: transparent;
+		border: none;
+		border-bottom: 1px solid rgba(255, 179, 0, 0.06);
+		cursor: pointer;
+		transition: background 0.1s;
+		font-family: 'Share Tech Mono', monospace;
+	}
+
+	.result-btn:hover,
+	.result-btn:focus {
+		background: rgba(255, 179, 0, 0.07);
+		outline: none;
+	}
+
+	.result-address {
+		display: block;
+		font-size: 11px;
+		color: #ffb300;
+		letter-spacing: 0.04em;
+		line-height: 1.3;
+	}
+
+	.result-coords {
+		display: block;
+		margin-top: 2px;
+		font-size: 9px;
+		color: rgba(255, 179, 0, 0.55);
+		letter-spacing: 0.08em;
+	}
+
+	.selected-panel {
+		margin-top: 8px;
+		border-left: 2px solid #ffb300;
+		border-top: 1px solid rgba(255, 179, 0, 0.18);
+		border-right: 1px solid rgba(255, 179, 0, 0.18);
+		border-bottom: 1px solid rgba(255, 179, 0, 0.18);
+		padding: 8px 10px;
+		background: rgba(255, 179, 0, 0.04);
+	}
+
+	.selected-label {
+		font-size: 9px;
+		letter-spacing: 0.2em;
+		color: rgba(255, 179, 0, 0.7);
+		margin: 0 0 4px;
+	}
+
+	.selected-address {
+		font-size: 11px;
+		color: #ffcc00;
+		letter-spacing: 0.04em;
+		line-height: 1.4;
+		margin: 0;
+	}
+
+	.selected-coords {
+		margin: 3px 0 0;
+		font-size: 9px;
+		color: rgba(255, 179, 0, 0.6);
+		letter-spacing: 0.08em;
+	}
+</style>

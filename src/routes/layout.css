@@ -1,3 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+html,
+body {
+	background-color: #090908;
+	color: #ffb300;
+	font-family: 'Share Tech Mono', 'Courier New', monospace;
+	margin: 0;
+	padding: 0;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+::selection {
+	background: rgba(255, 179, 0, 0.25);
+	color: #ffcc00;
+}
+
+::-webkit-scrollbar {
+	width: 4px;
+	height: 4px;
+}
+
+::-webkit-scrollbar-track {
+	background: #0a0a07;
+}
+
+::-webkit-scrollbar-thumb {
+	background: rgba(255, 179, 0, 0.25);
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 179, 0, 0.45);
+}
