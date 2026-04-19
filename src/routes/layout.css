@@ -1,3 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..800,70,0..1&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+:root {
+	--font-display: 'Fraunces', Georgia, serif;
+	--font-body: 'Space Grotesk', 'Avenir Next', sans-serif;
+	--color-ink: #07120f;
+	--color-ink-soft: #12342d;
+	--color-paper: #f8f2e8;
+	--color-paper-muted: #c4bbad;
+	--color-glass: rgb(248 242 232 / 0.84);
+	--color-glass-dark: rgb(7 18 15 / 0.84);
+	--color-line: rgb(248 242 232 / 0.1);
+	--color-accent: #ffb000;
+	--color-accent-strong: #ff6b2c;
+	--color-teal: #00a884;
+	--shadow-glass: 0 32px 80px rgb(0 0 0 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.08);
+	--shadow-small: 0 8px 32px rgb(7 18 15 / 0.22);
+	--shadow-btn: 0 8px 28px rgb(255 176 0 / 0.32), 0 2px 8px rgb(255 176 0 / 0.2);
+	--radius-xl: 1.75rem;
+	--radius-lg: 1.125rem;
+	--radius-md: 0.75rem;
+}
+
+html {
+	background: var(--color-ink);
+	font-family: var(--font-body);
+	color: var(--color-paper);
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	margin: 0;
+	min-width: 320px;
+	background:
+		radial-gradient(ellipse 60% 40% at 10% 0%, rgb(0 168 132 / 0.2) 0%, transparent 100%),
+		radial-gradient(ellipse 50% 35% at 90% 0%, rgb(255 176 0 / 0.14) 0%, transparent 100%),
+		radial-gradient(ellipse 70% 50% at 50% 110%, rgb(0 168 132 / 0.08) 0%, transparent 100%),
+		var(--color-ink);
+}
+
+button,
+input {
+	font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+::selection {
+	background: var(--color-accent);
+	color: var(--color-ink);
+}
+
+.font-display {
+	font-family: var(--font-display);
+}
+
+::-webkit-scrollbar {
+	width: 3px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: rgb(248 242 232 / 0.15);
+	border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: rgb(248 242 232 / 0.25);
+}
