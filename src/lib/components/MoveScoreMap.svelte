@@ -65,7 +65,7 @@
 
 			map = new maplibre.default.Map({
 				container: mapEl,
-				style: 'https://tiles.openfreemap.org/styles/positron',
+				style: 'https://tiles.openfreemap.org/styles/liberty',
 				center: [10.7522, 59.9139],
 				zoom: 11.2,
 				attributionControl: false
@@ -281,51 +281,55 @@
 	}
 </script>
 
-<div class={`relative min-h-screen overflow-hidden bg-[var(--color-ink)] ${className}`}>
-	<div bind:this={mapEl} class="h-full min-h-screen w-full"></div>
-
-	<!-- Walk distance legend -->
-	<div
-		class="absolute right-4 bottom-4 z-30 rounded-[var(--radius-lg)] border border-white/12 bg-[var(--color-glass-dark)] p-4 shadow-[var(--shadow-glass)] backdrop-blur-2xl sm:right-5 sm:bottom-5 lg:right-6 lg:bottom-6"
-		aria-label="Forklaring av gangringer"
-	>
-		<div class="mb-3 flex items-center justify-between gap-6">
-			<p class="text-[10px] font-bold tracking-[0.22em] text-[var(--color-paper-muted)] uppercase">
-				Gangavstand
-			</p>
-			<span
-				class="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-[var(--color-accent)]"
-				>20 min</span
-			>
-		</div>
-		<ul class="grid gap-2">
-			{#each WALK_BANDS as band (band.minutes)}
-				<li class="flex items-center gap-2.5">
-					<span
-						class="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_10px_currentColor]"
-						style:background-color={band.color}
-						style:color={band.color}
-						aria-hidden="true"
-					></span>
-					<span class="text-xs font-medium text-[var(--color-paper-muted)]">{band.label}</span>
-				</li>
-			{/each}
-		</ul>
-	</div>
+<div class={`relative min-h-screen overflow-hidden bg-[#ece8e0] ${className}`}>
+	<div bind:this={mapEl} class="map-canvas h-full min-h-screen w-full"></div>
 </div>
 
 <style>
+	/* Subtle warmth + slight desaturation to harmonize with the card design */
+	.map-canvas {
+		filter: saturate(0.88) contrast(0.94) brightness(1.04);
+	}
+
+	/* Zoom controls — white card style matching the panel cards */
 	:global(.maplibregl-ctrl-group) {
 		overflow: hidden;
-		border: 1px solid rgb(248 242 232 / 0.12);
-		border-radius: 0.875rem;
-		background: rgb(7 18 15 / 0.8);
-		box-shadow: var(--shadow-small);
-		backdrop-filter: blur(20px);
+		border-radius: 12px;
+		border: 1px solid rgba(0, 0, 0, 0.08);
+		background: #fffefc;
+		box-shadow:
+			0 2px 12px rgba(0, 0, 0, 0.08),
+			0 1px 3px rgba(0, 0, 0, 0.05);
+		backdrop-filter: none;
 	}
 
 	:global(.maplibregl-ctrl-group button) {
-		filter: invert(1);
+		filter: none;
+		color: #1a1a18;
+		width: 32px;
+		height: 32px;
+	}
+
+	:global(.maplibregl-ctrl-group button:hover) {
+		background: #f5f4ee !important;
+	}
+
+	:global(.maplibregl-ctrl-group button + button) {
+		border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+	}
+
+	/* Attribution */
+	:global(.maplibregl-ctrl-attrib) {
+		background: rgba(255, 254, 252, 0.82) !important;
+		backdrop-filter: blur(6px);
+		border-radius: 10px 0 0 0 !important;
+		font-size: 10px !important;
+		color: #a8a79e !important;
+		font-family: 'DM Sans', sans-serif !important;
+	}
+
+	:global(.maplibregl-ctrl-attrib a) {
+		color: #a8a79e !important;
 	}
 
 	:global(.maplibregl-ctrl-top-right) {
@@ -345,7 +349,7 @@
 		}
 
 		:global(.maplibregl-ctrl-bottom-right) {
-			right: 11rem;
+			right: 1.5rem;
 			bottom: 1.5rem;
 		}
 	}
