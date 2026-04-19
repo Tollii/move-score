@@ -33,6 +33,7 @@
 	let selectedOriginKey = '';
 	let activeRequestKey = '';
 	let loadedIsochroneKey = '';
+	let renderedIsochroneLayerIds: string[] = [];
 
 	const client = useConvexClient();
 
@@ -132,7 +133,7 @@
 			loadedIsochroneKey = '';
 			clearIsochroneLayers();
 			errorMessage = isRateLimitError(error)
-				? 'OpenRouteService har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes senere.'
+				? 'Mapbox har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes senere.'
 				: 'Kunne ikke hente gangavstand for valgt adresse.';
 		} finally {
 			if (activeRequestKey === requestKey) {
@@ -144,21 +145,25 @@
 	function renderIsochrone() {
 		if (!map || !isochrone) return;
 		clearIsochroneLayers();
-		// Sort features by time ascending, render outer-to-inner for proper layering
-		const feats = [...isochrone.features].sort((a, b) => featureValue(b) - featureValue(a));
-		for (const [index, feature] of feats.entries()) {
-			const id = `iso-${featureValue(feature)}`;
+		const polygonFeatures = [...isochrone.features]
+			.filter((feature) => isPolygonGeometry(feature.geometry))
+			.sort((a, b) => featureValue(b) - featureValue(a));
+
+		for (const [index, feature] of polygonFeatures.entries()) {
+			const id = `iso-fill-${featureValue(feature)}-${index}`;
+			const color = featureColor(feature);
 			map.addSource(id, { type: 'geojson', data: feature });
 			map.addLayer({
 				id,
 				type: 'fill',
 				source: id,
 				paint: {
-					'fill-color': COLORS[BANDS.length - 1 - index],
+					'fill-color': color,
 					'fill-opacity': 0.35,
-					'fill-outline-color': COLORS[BANDS.length - 1 - index]
+					'fill-outline-color': color
 				}
 			});
+			renderedIsochroneLayerIds = [...renderedIsochroneLayerIds, id];
 		}
 
 		moveMapToOrigin();
@@ -178,15 +183,27 @@
 			return;
 		}
 
-		for (const minutes of BANDS) {
-			const id = `iso-${minutes * 60}`;
+		const style = map.getStyle();
+		const layerIds = new Set([
+			...renderedIsochroneLayerIds,
+			...(style.layers ?? []).map((layer) => layer.id).filter((id) => id.startsWith('iso-'))
+		]);
+		const sourceIds = new Set([
+			...renderedIsochroneLayerIds,
+			...Object.keys(style.sources ?? {}).filter((id) => id.startsWith('iso-'))
+		]);
+
+		for (const id of layerIds) {
 			if (map.getLayer(id)) {
 				map.removeLayer(id);
 			}
+		}
+		for (const id of sourceIds) {
 			if (map.getSource(id)) {
 				map.removeSource(id);
 			}
 		}
+		renderedIsochroneLayerIds = [];
 	}
 
 	function featureValue(feature: IsochroneFeature) {
@@ -196,6 +213,18 @@
 		}
 
 		return Number(value ?? 0);
+	}
+
+	function featureColor(feature: IsochroneFeature) {
+		const minutes = featureValue(feature) / 60;
+		const bandIndex = BANDS.findIndex((band) => Math.abs(band - minutes) < 0.5);
+		return COLORS[bandIndex] ?? COLORS[COLORS.length - 1];
+	}
+
+	function isPolygonGeometry(
+		geometry: GeoJSON.Geometry | null
+	): geometry is GeoJSON.Polygon | GeoJSON.MultiPolygon {
+		return geometry?.type === 'Polygon' || geometry?.type === 'MultiPolygon';
 	}
 
 	function isRateLimitError(error: unknown) {
