@@ -37,8 +37,12 @@
 
 	const client = useConvexClient();
 
-	const BANDS = [5, 10, 15, 20]; // minutes
-	const COLORS = ['#0f766e', '#22c55e', '#eab308', '#ef4444']; // inside to outside
+	const WALK_BANDS = [
+		{ minutes: 5, color: '#0f766e', label: '0-5 minutter' },
+		{ minutes: 10, color: '#22c55e', label: '5-10 minutter' },
+		{ minutes: 15, color: '#eab308', label: '10-15 minutter' },
+		{ minutes: 20, color: '#ef4444', label: '15-20 minutter' }
+	];
 
 	onMount(() => {
 		let destroyed = false;
@@ -114,7 +118,7 @@
 			const geojson = (await client.action(api.isochrones.getWalkIsochrone, {
 				lat,
 				lon,
-				minutes: BANDS
+				minutes: WALK_BANDS.map((band) => band.minutes)
 			})) as IsochroneFeatureCollection;
 
 			if (activeRequestKey !== requestKey) {
@@ -217,8 +221,10 @@
 
 	function featureColor(feature: IsochroneFeature) {
 		const minutes = featureValue(feature) / 60;
-		const bandIndex = BANDS.findIndex((band) => Math.abs(band - minutes) < 0.5);
-		return COLORS[bandIndex] ?? COLORS[COLORS.length - 1];
+		return (
+			WALK_BANDS.find((band) => Math.abs(band.minutes - minutes) < 0.5)?.color ??
+			WALK_BANDS[WALK_BANDS.length - 1].color
+		);
 	}
 
 	function isPolygonGeometry(
@@ -263,5 +269,22 @@
 			<p class="font-medium">Velg en adresse</p>
 			<p class="mt-1 text-zinc-600">Kartet flyttes hit når du velger et søkeresultat.</p>
 		{/if}
+	</div>
+
+	<div
+		class="absolute right-4 bottom-4 left-4 rounded-md bg-white/95 p-4 text-sm text-zinc-900 shadow-sm md:left-auto md:max-w-sm"
+	>
+		<ul class="mt-3 grid gap-2" aria-label="Forklaring av gangringer">
+			{#each WALK_BANDS as band (band.minutes)}
+				<li class="flex items-center gap-2">
+					<span
+						class="h-3 w-3 shrink-0 rounded-full"
+						style:background-color={band.color}
+						aria-hidden="true"
+					></span>
+					<span>{band.label}</span>
+				</li>
+			{/each}
+		</ul>
 	</div>
 </div>
