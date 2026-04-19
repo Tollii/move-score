@@ -1,4 +1,5 @@
 <script lang="ts">
+	import './layout.css';
 	import { PUBLIC_CONVEX_URL } from '$env/static/public';
 	import { setupConvex } from 'convex-svelte';
 
