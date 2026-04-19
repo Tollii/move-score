@@ -29,6 +29,14 @@ npm run dev
 npm run dev -- --open
 ```
 
+### Mapbox
+
+Walking isochrones are fetched from Mapbox. Configure this Convex environment variable before requesting gangavstand:
+
+```sh
+MAPBOX_ACCESS_TOKEN=...
+```
+
 ## Building
 
 To create a production version of your app:
