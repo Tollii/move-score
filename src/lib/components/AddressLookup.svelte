@@ -34,8 +34,6 @@
 	let errorMessage = $state<string | undefined>();
 	let initialized = false;
 
-	const selectedAddressLabel = $derived(formatAddress(selectedAddress));
-
 	$effect(() => {
 		if (!initialized) {
 			query = defaultQuery;
@@ -135,7 +133,7 @@
 			return 'Ingen koordinater';
 		}
 
-		return `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)} ${point.epsg ?? ''}`.trim();
+		return `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`;
 	}
 
 	function addressKey(address: GeonorgeAddress) {
@@ -153,59 +151,67 @@
 	}
 </script>
 
-<section class="w-full max-w-2xl">
-	<label class="block text-sm font-medium text-zinc-900" for="address-lookup">Adresse</label>
+<section class="w-full">
+	<label
+		class="block text-[10px] font-bold tracking-[0.22em] text-[var(--color-paper-muted)] uppercase"
+		for="address-lookup">Adresse</label
+	>
 	<div class="relative mt-2">
 		<input
 			id="address-lookup"
 			type="search"
-			class="w-full rounded-md border-zinc-300 bg-white px-4 py-3 text-base text-zinc-950 shadow-sm transition outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/30"
+			class="w-full rounded-[var(--radius-lg)] border border-white/10 bg-[var(--color-paper)] px-4 py-3.5 text-[0.9375rem] font-semibold text-[var(--color-ink)] shadow-[var(--shadow-small)] outline-none transition placeholder:font-normal placeholder:text-[var(--color-ink-soft)]/45 focus:border-[var(--color-accent)]/60 focus:ring-3 focus:ring-[var(--color-accent)]/20"
 			{placeholder}
 			autocomplete="street-address"
 			bind:value={query}
 		/>
 		{#if loading}
-			<div class="absolute top-1/2 right-3 -translate-y-1/2 text-sm text-zinc-500">Søker...</div>
+			<span
+				class="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-[var(--color-ink)]/15 border-t-[var(--color-ink-soft)]"
+			></span>
 		{/if}
 	</div>
 
 	{#if errorMessage}
-		<p class="mt-2 text-sm text-red-700">{errorMessage}</p>
+		<p
+			class="mt-3 rounded-[var(--radius-md)] border border-red-400/20 bg-red-950/40 px-4 py-3 text-sm text-red-200"
+		>
+			{errorMessage}
+		</p>
 	{:else if query.trim().length > 0 && query.trim().length < minLength}
-		<p class="mt-2 text-sm text-zinc-600">Skriv minst {minLength} tegn.</p>
+		<p class="mt-2.5 text-xs text-[var(--color-paper-muted)]">Skriv minst {minLength} tegn.</p>
 	{/if}
 
 	{#if addresses.length > 0}
-		<div class="mt-3 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
+		<div
+			class="mt-2.5 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-ink)]/10 bg-[var(--color-paper)] shadow-[var(--shadow-glass)]"
+		>
 			<div
-				class="border-b border-zinc-200 px-4 py-2 text-xs font-medium tracking-wide text-zinc-500 uppercase"
+				class="border-b border-[var(--color-ink)]/8 px-4 py-2.5 text-[10px] font-bold tracking-[0.2em] text-[var(--color-ink-soft)]/60 uppercase"
 			>
 				{metadata?.totaltAntallTreff ?? addresses.length} treff
 			</div>
-			<ul class="divide-y divide-zinc-200">
+			<ul class="divide-y divide-[var(--color-ink)]/6">
 				{#each addresses as address (addressKey(address))}
 					<li>
 						<button
 							type="button"
-							class="block w-full px-4 py-3 text-left transition hover:bg-teal-50 focus:bg-teal-50 focus:outline-none"
+							class="group block w-full px-4 py-3 text-left transition-colors hover:bg-[var(--color-accent)]/10 focus:bg-[var(--color-accent)]/10 focus:outline-none"
 							onclick={() => selectAddress(address)}
 						>
-							<span class="block font-medium text-zinc-950">{formatAddress(address)}</span>
-							<span class="mt-1 block text-sm text-zinc-600">{formatCoordinates(address)}</span>
+							<span
+								class="block text-[0.875rem] font-bold leading-snug text-[var(--color-ink)] transition-transform duration-150 group-hover:translate-x-0.5 motion-safe:transition-transform"
+								>{formatAddress(address)}</span
+							>
+							<span class="mt-0.5 block text-xs font-medium text-[var(--color-ink-soft)]/60"
+								>{formatCoordinates(address)}</span
+							>
 						</button>
 					</li>
 				{/each}
 			</ul>
 		</div>
 	{:else if query.trim().length >= minLength && !loading && !errorMessage}
-		<p class="mt-2 text-sm text-zinc-600">Ingen adresser funnet.</p>
-	{/if}
-
-	{#if selectedAddress}
-		<div class="mt-4 rounded-md border border-teal-700 bg-teal-50 p-4 text-sm text-teal-950">
-			<p class="font-medium">Valgt adresse</p>
-			<p class="mt-1">{selectedAddressLabel}</p>
-			<p class="mt-1">{formatCoordinates(selectedAddress)}</p>
-		</div>
+		<p class="mt-2.5 text-xs text-[var(--color-paper-muted)]">Ingen adresser funnet.</p>
 	{/if}
 </section>

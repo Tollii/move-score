@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { AddressLookup, MoveScoreMap, type GeonorgeAddress } from '$lib';
+	import AddressCard from '$lib/components/AddressCard.svelte';
 
 	const defaultAddress: GeonorgeAddress = {
 		adressenavn: 'Slottsplassen',
@@ -29,68 +30,250 @@
 	};
 
 	let selectedAddress = $state<GeonorgeAddress | undefined>(defaultAddress);
+	let isochroneLoading = $state(false);
+	let isochroneError = $state<string | undefined>();
+	let triggerKey = $state(0);
+	let isochronesShown = $state(false);
+
+	function handleAddressSelect(address: GeonorgeAddress) {
+		selectedAddress = address;
+		isochroneError = undefined;
+		isochronesShown = false;
+	}
+
+	function handleShowIsochrones() {
+		isochronesShown = true;
+		triggerKey++;
+	}
+
+	const WALK_BANDS = [
+		{ color: '#3a7a52', label: '0–5 min' },
+		{ color: '#7fb069', label: '5–10 min' },
+		{ color: '#F5B800', label: '10–15 min' },
+		{ color: '#e05a2b', label: '15–20 min' }
+	];
 </script>
 
 <svelte:head>
-	<title>Adresseoppslag</title>
+	<title>Move Score — Finn nabolaget som passer deg</title>
 	<meta
 		name="description"
-		content="Søk etter norske adresser med Kartverkets GeoNorge-adresseoppslag."
+		content="Utforsk norske adresser på et interaktivt kart og se gangavstand rundt valgt punkt."
 	/>
 </svelte:head>
 
-<main class="min-h-screen bg-zinc-50 px-6 py-10 text-zinc-950">
-	<div class="mx-auto flex max-w-6xl flex-col gap-8">
-		<header>
-			<p class="text-sm font-medium tracking-wide text-teal-700 uppercase">GeoNorge</p>
-			<h1 class="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">Flyttescore</h1>
-			<p class="mt-3 max-w-2xl text-base text-zinc-700">
-				Finn en adresse og se hvor langt du kommer til fots.
-			</p>
-		</header>
+<main style="position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #f0efe9;">
+	<!-- Map layer -->
+	<MoveScoreMap
+		class="absolute inset-0 h-full w-full"
+		{selectedAddress}
+		{triggerKey}
+		bind:isLoading={isochroneLoading}
+		bind:error={isochroneError}
+	/>
 
-		<section class="grid gap-6 lg:grid-cols-[minmax(320px,420px)_1fr]">
-			<div class="flex flex-col gap-4">
-				<AddressLookup
-					defaultQuery="Slottsplassen 1, 0010 OSLO (OSLO)"
-					onSelect={(address) => (selectedAddress = address)}
-				/>
-
-				{#if selectedAddress?.representasjonspunkt}
-					<section class="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
-						<h2 class="text-lg font-semibold text-zinc-950">Valgt punkt</h2>
-						<dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
-							<div>
-								<dt class="text-zinc-500">Latitude</dt>
-								<dd class="font-medium text-zinc-950">
-									{selectedAddress.representasjonspunkt.lat}
-								</dd>
-							</div>
-							<div>
-								<dt class="text-zinc-500">Longitude</dt>
-								<dd class="font-medium text-zinc-950">
-									{selectedAddress.representasjonspunkt.lon}
-								</dd>
-							</div>
-							<div>
-								<dt class="text-zinc-500">EPSG</dt>
-								<dd class="font-medium text-zinc-950">
-									{selectedAddress.representasjonspunkt.epsg}
-								</dd>
-							</div>
-							<div>
-								<dt class="text-zinc-500">Kommune</dt>
-								<dd class="font-medium text-zinc-950">
-									{selectedAddress.kommunenavn}
-									{selectedAddress.kommunenummer}
-								</dd>
-							</div>
-						</dl>
-					</section>
-				{/if}
+	<!-- Left panel -->
+	<div class="panel">
+		<!-- Search card -->
+		<div class="card search-card">
+			<!-- Logo -->
+			<div class="logo">
+				<svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+					<circle cx="6.5" cy="6.5" r="6.5" fill="#F5B800" />
+					<path d="M3.5 6.5l2 2 4-4" stroke="#1A1A18" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+				</svg>
+				<span class="logo-text">Move Score</span>
 			</div>
 
-			<MoveScoreMap {selectedAddress} />
-		</section>
+			{#if !selectedAddress}
+				<div class="tagline">
+					<h1>Finn nabolaget som passer livet ditt.</h1>
+					<p>Søk etter en adresse og se gangavstand, kollektivtilbud og nabolagsinfo.</p>
+				</div>
+			{/if}
+
+			<div style="margin-top: {selectedAddress ? '0' : '14px'};">
+				{#if !selectedAddress}
+					<div class="lbl">Adresse</div>
+				{/if}
+				<AddressLookup
+					defaultQuery="Slottsplassen 1, 0010 OSLO (OSLO)"
+					onSelect={handleAddressSelect}
+				/>
+			</div>
+
+			{#if isochroneError}
+				<p class="error-msg">{isochroneError}</p>
+			{/if}
+		</div>
+
+		<!-- Address + dashboard card -->
+		{#if selectedAddress}
+			<AddressCard
+				address={selectedAddress}
+				{isochronesShown}
+				isLoading={isochroneLoading}
+				onShowIsochrones={handleShowIsochrones}
+			/>
+		{/if}
+
+		<!-- Legend -->
+		{#if isochronesShown}
+			<div class="card legend-card">
+				<div class="lbl" style="margin-bottom: 8px;">Gangavstand</div>
+				{#each WALK_BANDS as band (band.label)}
+					<div class="legend-row">
+						<div class="legend-dot" style:background={band.color}></div>
+						{band.label}
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</div>
 </main>
+
+<style>
+	main {
+		font-family: 'DM Sans', sans-serif;
+	}
+
+	.panel {
+		position: fixed;
+		top: 20px;
+		left: 20px;
+		z-index: 100;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		max-height: calc(100vh - 40px);
+		overflow-y: auto;
+		overflow-x: visible;
+		scrollbar-width: none;
+		padding-bottom: 20px;
+	}
+	.panel::-webkit-scrollbar {
+		display: none;
+	}
+
+	.card {
+		background: #fffefc;
+		border-radius: 14px;
+		box-shadow:
+			0 2px 12px rgba(0, 0, 0, 0.08),
+			0 1px 3px rgba(0, 0, 0, 0.06);
+		border: 1px solid rgba(0, 0, 0, 0.07);
+		width: 316px;
+		pointer-events: auto;
+	}
+
+	.search-card {
+		padding: 16px;
+	}
+
+	.logo {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		background: #1a1a18;
+		border-radius: 8px;
+		padding: 6px 11px;
+		width: fit-content;
+	}
+	.logo-text {
+		color: #f5b800;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.13em;
+		text-transform: uppercase;
+	}
+
+	.tagline {
+		margin-top: 13px;
+	}
+	.tagline h1 {
+		font-size: 19px;
+		font-weight: 700;
+		line-height: 1.25;
+		color: #1a1a18;
+		letter-spacing: -0.02em;
+		text-wrap: pretty;
+		margin: 0;
+	}
+	.tagline p {
+		font-size: 12.5px;
+		color: #a8a79e;
+		line-height: 1.55;
+		margin: 5px 0 0;
+	}
+
+	.lbl {
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
+		color: #a8a79e;
+		margin-bottom: 7px;
+	}
+
+	.error-msg {
+		margin-top: 10px;
+		padding: 9px 11px;
+		border-radius: 8px;
+		border: 1px solid #f9a8a8;
+		background: #fff5f5;
+		font-size: 12px;
+		color: #c0392b;
+		line-height: 1.5;
+	}
+
+	.legend-card {
+		padding: 10px 14px;
+		margin-top: 8px;
+	}
+	.legend-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 12.5px;
+		color: #1a1a18;
+		margin-bottom: 5px;
+	}
+	.legend-row:last-child {
+		margin-bottom: 0;
+	}
+	.legend-dot {
+		width: 11px;
+		height: 11px;
+		border-radius: 3px;
+		flex-shrink: 0;
+		opacity: 0.9;
+	}
+
+	/* Override AddressLookup component for light card context */
+	.search-card :global(input[type='search']) {
+		background: #fafaf6 !important;
+		border: 1.5px solid #e5e4de !important;
+		border-radius: 9px !important;
+		color: #1a1a18 !important;
+		font-family: 'DM Sans', sans-serif !important;
+		box-shadow: none !important;
+	}
+	.search-card :global(input[type='search']:focus) {
+		border-color: #f5b800 !important;
+		background: #fff !important;
+		box-shadow: 0 0 0 3px rgba(245, 184, 0, 0.15) !important;
+	}
+	.search-card :global(input[type='search']::placeholder) {
+		color: #a8a79e !important;
+		font-weight: 400 !important;
+	}
+	.search-card :global(label) {
+		color: #a8a79e !important;
+	}
+	/* Suggestion dropdown */
+	.search-card :global(section > div:last-child) {
+		border-color: #e5e4de !important;
+		border-radius: 11px !important;
+		box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1) !important;
+	}
+</style>

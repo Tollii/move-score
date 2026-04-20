@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type maplibregl from 'maplibre-gl';
 	import { useConvexClient } from 'convex-svelte';
@@ -8,6 +8,10 @@
 
 	type Props = {
 		selectedAddress?: GeonorgeAddress;
+		class?: string;
+		triggerKey?: number;
+		isLoading?: boolean;
+		error?: string | undefined;
 	};
 
 	type IsochroneProperties = {
@@ -20,7 +24,13 @@
 		IsochroneProperties
 	>;
 
-	let { selectedAddress }: Props = $props();
+	let {
+		selectedAddress,
+		class: className = '',
+		triggerKey = 0,
+		isLoading = $bindable(false),
+		error = $bindable<string | undefined>(undefined)
+	}: Props = $props();
 
 	let mapEl: HTMLDivElement;
 	let map = $state<maplibregl.Map | undefined>();
@@ -28,20 +38,19 @@
 	let mapReady = $state(false);
 	let origin = $state<{ lat: number; lon: number } | null>(null);
 	let isochrone = $state<IsochroneFeatureCollection | null>(null);
-	let isochroneLoading = $state(false);
-	let errorMessage = $state<string | undefined>();
 	let selectedOriginKey = '';
 	let activeRequestKey = '';
 	let loadedIsochroneKey = '';
 	let renderedIsochroneLayerIds: string[] = [];
+	let lastTriggerKey = 0;
 
 	const client = useConvexClient();
 
 	const WALK_BANDS = [
-		{ minutes: 5, color: '#0f766e', label: '0-5 minutter' },
-		{ minutes: 10, color: '#22c55e', label: '5-10 minutter' },
-		{ minutes: 15, color: '#eab308', label: '10-15 minutter' },
-		{ minutes: 20, color: '#ef4444', label: '15-20 minutter' }
+		{ minutes: 5, color: '#0f766e', label: '0–5 min' },
+		{ minutes: 10, color: '#22c55e', label: '5–10 min' },
+		{ minutes: 15, color: '#eab308', label: '10–15 min' },
+		{ minutes: 20, color: '#ef4444', label: '15–20 min' }
 	];
 
 	onMount(() => {
@@ -56,12 +65,19 @@
 
 			map = new maplibre.default.Map({
 				container: mapEl,
-				style: 'https://tiles.openfreemap.org/styles/positron',
+				style: 'https://tiles.openfreemap.org/styles/liberty',
 				center: [10.7522, 59.9139],
-				zoom: 11
+				zoom: 11.2,
+				attributionControl: false
 			});
 
-			marker = new maplibre.default.Marker({ color: '#0f766e' });
+			map.addControl(
+				new maplibre.default.NavigationControl({ showZoom: true, showCompass: true }),
+				'top-right'
+			);
+			map.addControl(new maplibre.default.AttributionControl({ compact: true }), 'bottom-right');
+
+			marker = new maplibre.default.Marker({ color: '#ffb000', scale: 1.05 });
 			map.on('load', () => {
 				mapReady = true;
 			});
@@ -92,9 +108,17 @@
 		loadedIsochroneKey = '';
 		origin = { lat: point.lat, lon: point.lon };
 		isochrone = null;
-		errorMessage = undefined;
+		error = undefined;
 		clearIsochroneLayers();
 		moveMapToOrigin();
+	});
+
+	$effect(() => {
+		const key = triggerKey;
+		if (key > 0 && key !== lastTriggerKey) {
+			lastTriggerKey = key;
+			untrack(showWalkIsochrone);
+		}
 	});
 
 	function showWalkIsochrone() {
@@ -111,8 +135,8 @@
 	}
 
 	async function loadIsochrone(lat: number, lon: number, requestKey: string) {
-		isochroneLoading = true;
-		errorMessage = undefined;
+		isLoading = true;
+		error = undefined;
 
 		try {
 			const geojson = (await client.action(api.isochrones.getWalkIsochrone, {
@@ -128,7 +152,7 @@
 			isochrone = geojson;
 			loadedIsochroneKey = requestKey;
 			renderIsochrone();
-		} catch (error) {
+		} catch (err) {
 			if (activeRequestKey !== requestKey) {
 				return;
 			}
@@ -136,12 +160,12 @@
 			isochrone = null;
 			loadedIsochroneKey = '';
 			clearIsochroneLayers();
-			errorMessage = isRateLimitError(error)
-				? 'Mapbox har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes senere.'
+			error = isRateLimitError(err)
+				? 'Mapbox har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes igjen om litt.'
 				: 'Kunne ikke hente gangavstand for valgt adresse.';
 		} finally {
 			if (activeRequestKey === requestKey) {
-				isochroneLoading = false;
+				isLoading = false;
 			}
 		}
 	}
@@ -163,7 +187,7 @@
 				source: id,
 				paint: {
 					'fill-color': color,
-					'fill-opacity': 0.35,
+					'fill-opacity': 0.28,
 					'fill-outline-color': color
 				}
 			});
@@ -179,7 +203,25 @@
 		}
 
 		marker?.setLngLat([origin.lon, origin.lat]).addTo(map);
-		map.flyTo({ center: [origin.lon, origin.lat], zoom: 14, essential: true });
+
+		const reducedMotion = globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		const padding =
+			globalThis.innerWidth >= 1024
+				? { top: 120, right: 220, bottom: 180, left: 520 }
+				: { top: 220, right: 40, bottom: 220, left: 40 };
+
+		if (reducedMotion) {
+			map.jumpTo({ center: [origin.lon, origin.lat], zoom: 14.2, padding });
+			return;
+		}
+
+		map.flyTo({
+			center: [origin.lon, origin.lat],
+			zoom: 14.2,
+			padding,
+			duration: 1100,
+			essential: false
+		});
 	}
 
 	function clearIsochroneLayers() {
@@ -233,58 +275,82 @@
 		return geometry?.type === 'Polygon' || geometry?.type === 'MultiPolygon';
 	}
 
-	function isRateLimitError(error: unknown) {
-		const message = error instanceof Error ? error.message : String(error);
+	function isRateLimitError(err: unknown) {
+		const message = err instanceof Error ? err.message : String(err);
 		return message.includes('429') || message.toLowerCase().includes('rate limit');
 	}
 </script>
 
-<div class="relative min-h-[480px] overflow-hidden rounded-md border border-zinc-200 bg-zinc-100">
-	<div bind:this={mapEl} class="h-[480px] w-full"></div>
-
-	<div
-		class="absolute top-4 left-4 max-w-sm rounded-md bg-white/95 p-3 text-sm text-zinc-900 shadow-sm"
-	>
-		{#if selectedAddress}
-			<p class="font-medium">{selectedAddress.adressetekst}</p>
-			<p class="mt-1 text-zinc-600">
-				{selectedAddress.postnummer}
-				{selectedAddress.poststed}
-			</p>
-			<button
-				type="button"
-				class="mt-3 rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
-				disabled={isochroneLoading || !origin}
-				onclick={showWalkIsochrone}
-			>
-				{isochroneLoading ? 'Henter gangavstand...' : 'Vis gangavstand'}
-			</button>
-			{#if isochroneLoading}
-				<p class="mt-2 text-zinc-600">Henter gangavstand...</p>
-			{/if}
-			{#if errorMessage}
-				<p class="mt-2 text-red-700">{errorMessage}</p>
-			{/if}
-		{:else}
-			<p class="font-medium">Velg en adresse</p>
-			<p class="mt-1 text-zinc-600">Kartet flyttes hit når du velger et søkeresultat.</p>
-		{/if}
-	</div>
-
-	<div
-		class="absolute right-4 bottom-4 left-4 rounded-md bg-white/95 p-4 text-sm text-zinc-900 shadow-sm md:left-auto md:max-w-sm"
-	>
-		<ul class="mt-3 grid gap-2" aria-label="Forklaring av gangringer">
-			{#each WALK_BANDS as band (band.minutes)}
-				<li class="flex items-center gap-2">
-					<span
-						class="h-3 w-3 shrink-0 rounded-full"
-						style:background-color={band.color}
-						aria-hidden="true"
-					></span>
-					<span>{band.label}</span>
-				</li>
-			{/each}
-		</ul>
-	</div>
+<div class={`relative min-h-screen overflow-hidden bg-[#ece8e0] ${className}`}>
+	<div bind:this={mapEl} class="map-canvas h-full min-h-screen w-full"></div>
 </div>
+
+<style>
+	/* Subtle warmth + slight desaturation to harmonize with the card design */
+	.map-canvas {
+		filter: saturate(0.88) contrast(0.94) brightness(1.04);
+	}
+
+	/* Zoom controls — white card style matching the panel cards */
+	:global(.maplibregl-ctrl-group) {
+		overflow: hidden;
+		border-radius: 12px;
+		border: 1px solid rgba(0, 0, 0, 0.08);
+		background: #fffefc;
+		box-shadow:
+			0 2px 12px rgba(0, 0, 0, 0.08),
+			0 1px 3px rgba(0, 0, 0, 0.05);
+		backdrop-filter: none;
+	}
+
+	:global(.maplibregl-ctrl-group button) {
+		filter: none;
+		color: #1a1a18;
+		width: 32px;
+		height: 32px;
+	}
+
+	:global(.maplibregl-ctrl-group button:hover) {
+		background: #f5f4ee !important;
+	}
+
+	:global(.maplibregl-ctrl-group button + button) {
+		border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+	}
+
+	/* Attribution */
+	:global(.maplibregl-ctrl-attrib) {
+		background: rgba(255, 254, 252, 0.82) !important;
+		backdrop-filter: blur(6px);
+		border-radius: 10px 0 0 0 !important;
+		font-size: 10px !important;
+		color: #a8a79e !important;
+		font-family: 'DM Sans', sans-serif !important;
+	}
+
+	:global(.maplibregl-ctrl-attrib a) {
+		color: #a8a79e !important;
+	}
+
+	:global(.maplibregl-ctrl-top-right) {
+		top: 1rem;
+		right: 1rem;
+	}
+
+	:global(.maplibregl-ctrl-bottom-right) {
+		right: 1rem;
+		bottom: 1rem;
+	}
+
+	@media (min-width: 1024px) {
+		:global(.maplibregl-ctrl-top-right) {
+			top: 1.5rem;
+			right: 1.5rem;
+		}
+
+		:global(.maplibregl-ctrl-bottom-right) {
+			right: 1.5rem;
+			bottom: 1.5rem;
+		}
+	}
+</style>
