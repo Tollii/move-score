@@ -1,12 +1,9 @@
 // convex/isochrones.ts
-import { api } from './_generated/api';
-import { action, mutation, query } from './_generated/server';
+import { action } from './_generated/server';
 import { v } from 'convex/values';
 
-const ISOCHRONE_CACHE_VERSION = 'v1';
 const MAPBOX_GENERALIZE_METERS = 1;
 const MAPBOX_DENOISE = 0;
-const WALK_TTL_DAYS = 90;
 const TARGOMO_BASE = 'https://api.targomo.com/westcentraleurope/v1';
 
 type GeoJsonFeatureCollection = {
@@ -24,7 +21,7 @@ export const getTransitIsochrone = action({
 		lon: v.number(),
 		minutes: v.array(v.number()) // e.g. [15, 30, 45, 60]
 	},
-	handler: async (ctx, { lat, lon, minutes }): Promise<unknown> => {
+	handler: async (_ctx, { lat, lon, minutes }): Promise<unknown> => {
 		const ranges = normalizeTransitRanges(minutes);
 		if (ranges.length === 0) {
 			throw new Error('Transit isochrone ranges must be between 1 and 120 minutes');
@@ -76,43 +73,19 @@ export const getWalkIsochrone = action({
 		lon: v.number(),
 		minutes: v.array(v.number()) // e.g. [5, 10, 15, 20]
 	},
-	handler: async (ctx, { lat, lon, minutes }): Promise<unknown> => {
+	handler: async (_ctx, { lat, lon, minutes }): Promise<unknown> => {
 		const ranges = normalizeRanges(minutes);
 		if (ranges.length === 0) {
 			throw new Error('Mapbox isochrone ranges must be between 1 and 60 minutes');
 		}
-		const cacheKey = `walk:mapbox:${ISOCHRONE_CACHE_VERSION}:${lat.toFixed(5)}:${lon.toFixed(5)}:${ranges.join(',')}:generalize:${MAPBOX_GENERALIZE_METERS}:denoise:${MAPBOX_DENOISE}`;
-		console.log('[isochrones.getWalkIsochrone] start', { cacheKey, lat, lon, minutes: ranges });
-		const cached = (await ctx.runQuery(api.isochrones.getCached, { cacheKey })) as {
-			geojson: unknown;
-			computedAt: number;
-			ttlDays: number;
-		} | null;
-		if (cached && isFresh(cached)) {
-			console.log('[isochrones.getWalkIsochrone] cache hit', {
-				cacheKey,
-				computedAt: cached.computedAt,
-				ttlDays: cached.ttlDays
-			});
-			return cached.geojson;
-		}
-		if (cached) {
-			console.log('[isochrones.getWalkIsochrone] cache stale', {
-				cacheKey,
-				computedAt: cached.computedAt,
-				ttlDays: cached.ttlDays
-			});
-		} else {
-			console.log('[isochrones.getWalkIsochrone] cache miss', { cacheKey });
-		}
+		console.log('[isochrones.getWalkIsochrone] start', { lat, lon, minutes: ranges });
 
 		const accessToken = process.env.MAPBOX_ACCESS_TOKEN;
 		if (!accessToken) {
-			console.log('[isochrones.getWalkIsochrone] missing Mapbox access token', { cacheKey });
 			throw new Error('MAPBOX_ACCESS_TOKEN must be configured');
 		}
 
-		console.log('[isochrones.getWalkIsochrone] fetching Mapbox', { cacheKey });
+		console.log('[isochrones.getWalkIsochrone] fetching Mapbox', { lat, lon, minutes: ranges });
 		const url = new URL(`https://api.mapbox.com/isochrone/v1/mapbox/walking/${lon},${lat}`);
 		url.searchParams.set('contours_minutes', ranges.map((minute) => String(minute)).join(','));
 		url.searchParams.set('polygons', 'true');
@@ -122,83 +95,19 @@ export const getWalkIsochrone = action({
 
 		const res = await fetch(url);
 		console.log('[isochrones.getWalkIsochrone] Mapbox response', {
-			cacheKey,
 			status: res.status,
 			ok: res.ok
 		});
 		if (!res.ok) {
 			const body = await res.text();
-			console.log('[isochrones.getWalkIsochrone] Mapbox error', {
-				cacheKey,
-				status: res.status,
-				body
-			});
+			console.log('[isochrones.getWalkIsochrone] Mapbox error', { status: res.status, body });
 			throw new Error(`Mapbox ${res.status}: ${body}`);
 		}
 
 		const geojson = normalizeMapboxGeojson(await res.json(), ranges);
 		const featureCount = Array.isArray(geojson.features) ? geojson.features.length : undefined;
-		console.log('[isochrones.getWalkIsochrone] Mapbox parsed', { cacheKey, featureCount });
-
-		await ctx.runMutation(api.isochrones.saveCache, {
-			cacheKey,
-			lat,
-			lon,
-			mode: 'walk',
-			minutes: ranges,
-			geojsonJson: JSON.stringify(geojson),
-			ttlDays: WALK_TTL_DAYS
-		});
-		console.log('[isochrones.getWalkIsochrone] saved cache', { cacheKey });
+		console.log('[isochrones.getWalkIsochrone] Mapbox parsed', { featureCount });
 		return JSON.stringify(geojson);
-	}
-});
-
-export const getCached = query({
-	args: { cacheKey: v.string() },
-	handler: async (ctx, { cacheKey }) => {
-		const cached = await ctx.db
-			.query('isochrones')
-			.withIndex('by_cacheKey', (q) => q.eq('cacheKey', cacheKey))
-			.first();
-		console.log('[isochrones.getCached] lookup', { cacheKey, hit: cached !== null });
-		return cached;
-	}
-});
-
-export const saveCache = mutation({
-	args: {
-		cacheKey: v.string(),
-		lat: v.number(),
-		lon: v.number(),
-		mode: v.literal('walk'),
-		minutes: v.array(v.number()),
-		geojsonJson: v.string(),
-		ttlDays: v.number()
-	},
-	handler: async (ctx, args) => {
-		const { geojsonJson, ...metadata } = args;
-		console.log('[isochrones.saveCache] upsert start', { cacheKey: metadata.cacheKey });
-		const existing = await ctx.db
-			.query('isochrones')
-			.withIndex('by_cacheKey', (q) => q.eq('cacheKey', metadata.cacheKey))
-			.first();
-
-		const row = {
-			...metadata,
-			geojson: geojsonJson,
-			computedAt: Date.now()
-		};
-
-		if (existing) {
-			await ctx.db.patch(existing._id, row);
-			console.log('[isochrones.saveCache] updated existing', { cacheKey: metadata.cacheKey });
-			return existing._id;
-		}
-
-		const id = await ctx.db.insert('isochrones', row);
-		console.log('[isochrones.saveCache] inserted new', { cacheKey: metadata.cacheKey, id });
-		return id;
 	}
 });
 
@@ -283,8 +192,4 @@ function isFeatureCollection(value: unknown): value is GeoJsonFeatureCollection 
 		(value as GeoJsonFeatureCollection).type === 'FeatureCollection' &&
 		Array.isArray((value as GeoJsonFeatureCollection).features)
 	);
-}
-
-function isFresh(row: { computedAt: number; ttlDays: number }) {
-	return Date.now() - row.computedAt < row.ttlDays * 86400 * 1000;
 }
