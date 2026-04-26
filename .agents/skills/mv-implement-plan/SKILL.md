@@ -11,10 +11,12 @@ Execute a written implementation plan with minimal drift.
 
 - Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
 - Use `pnpm` for package scripts and dependency changes.
+- Prefer the repo tools `move_score_validate`, `move_score_format_files`, `move_score_convex_codegen`, `move_score_git_status`, and `move_score_categorize_files` when they are available; fall back to `pnpm` scripts and direct `git` commands when they are not.
 - Validate with targeted checks first, then `pnpm check`, `pnpm lint`, and `pnpm build` for publishable work.
 - Run `npx convex codegen` after Convex schema/API changes when generated files need updating.
 - Do not edit `src/convex/_generated/` by hand.
 - Keep frontend changes aligned with existing SvelteKit/Svelte 5 patterns in `src/routes/` and `src/lib/components/`.
+- Claude Code and Codex project hooks in `.claude/settings.json` and `.codex/hooks.json` will run scoped post-edit checks; do not counteract them with broad formatting unless the plan explicitly calls for it.
 
 ## Workflow
 

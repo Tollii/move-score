@@ -17,6 +17,7 @@ Review a proposed GitHub PR or local diff and post only actionable inline findin
 
 - Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
 - Use GitHub Issues and PRs. The issue board is available but lightly used, so keep process lightweight for solo-maintainer work.
+- Prefer the repo tools `move_score_validate`, `move_score_git_status`, and `move_score_categorize_files` when they are available; fall back to `pnpm` scripts and direct `git` commands when they are not.
 - Validate with `pnpm check`, `pnpm lint`, and `pnpm build` when risk warrants it; use targeted checks first.
 - Treat Vercel and Convex preview deployments as the normal PR deployment path and mention caveats when publishing or reviewing.
 - Do not edit `src/convex/_generated/` by hand; run `npx convex codegen` after Convex schema or API changes when needed.

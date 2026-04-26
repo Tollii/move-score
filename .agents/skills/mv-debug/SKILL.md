@@ -17,6 +17,7 @@ Investigate a defect with evidence before changing code. The goal is to reproduc
 
 - Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
 - Use GitHub Issues and PRs. The issue board is available but lightly used, so keep process lightweight for solo-maintainer work.
+- Prefer the repo tools `move_score_validate`, `move_score_format_files`, `move_score_convex_codegen`, `move_score_git_status`, and `move_score_categorize_files` when they are available; fall back to `pnpm` scripts and direct `git` commands when they are not.
 - Validate with `pnpm check`, `pnpm lint`, and `pnpm build` when risk warrants it; use targeted checks first.
 - Treat Vercel and Convex preview deployments as the normal PR deployment path and mention caveats when publishing or reviewing.
 - Do not edit `src/convex/_generated/` by hand; run `npx convex codegen` after Convex schema or API changes when needed.
@@ -94,6 +95,7 @@ Do not invoke other workflow skills from this skill. Report what is needed next 
 ## Move Score Adapter
 
 - Run the app with `pnpm dev`; run Convex locally with `npx convex dev` when backend functions are involved.
+- Claude Code and Codex project hooks will auto-run scoped post-edit checks from `scripts/agent-hooks/`; prefer that path over repo-wide formatting churn.
 - Use `pnpm check`, `pnpm lint`, and `pnpm build` as deterministic failure proxies; run the narrowest relevant command first.
 - Check Vercel preview/production logs for frontend deployment issues and Convex logs for backend function issues when access is available.
 - For Mapbox walking isochrone bugs, verify that `MAPBOX_ACCESS_TOKEN` is configured in the relevant Convex environment.

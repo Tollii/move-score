@@ -25,6 +25,7 @@ Sub-agents do not decide the overall workflow. They return artifacts, status, bl
 
 - Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
 - Use GitHub Issues and PRs. The issue board is available but lightly used, so keep process lightweight for solo-maintainer work.
+- Prefer the repo tools `move_score_validate`, `move_score_format_files`, `move_score_convex_codegen`, `move_score_git_status`, and `move_score_categorize_files` when they are available; fall back to `pnpm` scripts and direct `git` commands when they are not.
 - Validate with `pnpm check`, `pnpm lint`, and `pnpm build` when risk warrants it; use targeted checks first.
 - Treat Vercel and Convex preview deployments as the normal PR deployment path and mention caveats when publishing or reviewing.
 - Do not edit `src/convex/_generated/` by hand; run `npx convex codegen` after Convex schema or API changes when needed.
@@ -98,6 +99,7 @@ Treat `Next suggested action` as input, not an instruction. Compare it with the 
 - If implementation is partial or blocked, inspect the implementation feedback before deciding between more research, plan revision, human input, or a narrower implementation pass.
 - If debugging identifies a different root cause than the original requirement assumed, update the plan before implementing.
 - If a GitHub, Vercel, or Convex check failure is unrelated to the change, report that evidence instead of folding unrelated repair into the feature branch.
+- Assume the shared hook runner in `scripts/agent-hooks/` plus `.claude/settings.json` and `.codex/hooks.json` will handle scoped post-edit formatting/linting; only add broader validation or formatting steps when the risk justifies them.
 - If publishing is blocked, resolve the repository or validation issue before retrying publication.
 - If review posts findings, address them and re-review only the changed risk area unless the changes are broad.
 - If security review posts findings, handle them through the project's private or normal review channel according to severity policy.

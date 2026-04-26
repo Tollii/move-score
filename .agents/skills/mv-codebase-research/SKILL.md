@@ -11,6 +11,7 @@ Research a codebase to answer a specific engineering question. The output should
 
 - Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
 - Use GitHub Issues and PRs. The issue board is available but lightly used, so keep process lightweight for solo-maintainer work.
+- Prefer `move_score_git_status` and `move_score_categorize_files` when they are available for quick repo summaries; fall back to `git` and code search when they are not.
 - Validate with `pnpm check`, `pnpm lint`, and `pnpm build` when risk warrants it; use targeted checks first.
 - Treat Vercel and Convex preview deployments as the normal PR deployment path and mention caveats when publishing or reviewing.
 - Do not edit `src/convex/_generated/` by hand; run `npx convex codegen` after Convex schema or API changes when needed.
@@ -83,6 +84,7 @@ Do not invoke other workflow skills from this skill. Report what is needed next 
 
 - Start with `README.md`, `package.json`, `svelte.config.js`, `vite.config.ts`, and `convex.json` when project shape matters.
 - Search with `rg` and `rg --files`; trace real Svelte components in `src/lib/components/`, routes in `src/routes/`, GeoNorge code in `src/lib/geonorge/`, and Convex functions in `src/convex/`.
+- Treat the shared hook runner in `scripts/agent-hooks/` plus `.claude/settings.json` and `.codex/hooks.json` as the active local automation path for post-edit formatting/linting.
 - Treat `src/convex/_generated/` as generated contract evidence, not editable source.
 - For deployed behavior, consider both Vercel frontend previews and Convex backend previews.
 - Preserve Norwegian product/domain vocabulary unless the research question is specifically about copy or localization.

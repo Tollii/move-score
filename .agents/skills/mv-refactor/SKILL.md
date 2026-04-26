@@ -15,6 +15,7 @@ The top-level agent owns scope, safety, and validation. Delegate research, mecha
 
 - Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
 - Use GitHub Issues and PRs. The issue board is available but lightly used, so keep process lightweight for solo-maintainer work.
+- Prefer the repo tools `move_score_validate`, `move_score_format_files`, `move_score_convex_codegen`, and `move_score_categorize_files` when they are available; fall back to `pnpm` scripts when they are not.
 - Validate with `pnpm check`, `pnpm lint`, and `pnpm build` when risk warrants it; use targeted checks first.
 - Treat Vercel and Convex preview deployments as the normal PR deployment path and mention caveats when publishing or reviewing.
 - Do not edit `src/convex/_generated/` by hand; run `npx convex codegen` after Convex schema or API changes when needed.
@@ -133,6 +134,7 @@ When acting as the top-level orchestrator, decide whether to continue with imple
 
 - Keep Svelte UI, GeoNorge client integration, and Convex backend responsibilities separated.
 - Treat Convex schema/API changes as public contracts for generated clients; run `npx convex codegen` when needed and do not edit generated files by hand.
+- Claude Code and Codex project hooks already run scoped post-edit checks; avoid widening those into full-repo format churn unless the refactor genuinely needs it.
 - Use `pnpm check`, `pnpm lint`, and `pnpm build` as characterization and regression gates.
 - Avoid broad formatting churn; run `pnpm format` only when the touched scope justifies it.
 - Preserve app vocabulary for address lookup, score sections, `Eiendom`, `Nabolag`, `Kollektivt`, and `gangavstand`.
