@@ -8,9 +8,7 @@
  * @module
  */
 
-import type * as geocode from "../geocode.js";
 import type * as isochrones from "../isochrones.js";
-import type * as pois from "../pois.js";
 
 import type {
   ApiFromModules,
@@ -19,9 +17,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  geocode: typeof geocode;
   isochrones: typeof isochrones;
-  pois: typeof pois;
 }>;
 
 /**
