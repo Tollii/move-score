@@ -11,7 +11,14 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"lint:eslint": "eslint .",
+		"lint:prettier": "prettier --check .",
+		"lint:file": "eslint",
+		"format": "prettier --write .",
+		"format:file": "prettier --write",
+		"validate": "pnpm run check && pnpm run lint",
+		"validate:build": "pnpm run validate && pnpm run build",
+		"convex:codegen": "convex codegen"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",
