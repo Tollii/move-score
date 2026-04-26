@@ -9,7 +9,7 @@ Publish a branch and open a GitHub pull request with enough context for review, 
 
 ## Project Adapter
 
-- Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
+- Work in `Tollii/move-score` with `main` as the PR base and `agent/` branches unless the user asks otherwise.
 - Use GitHub Issues and PRs. The issue board is available but lightly used, so keep process lightweight for solo-maintainer work.
 - Validate with `pnpm check`, `pnpm lint`, and `pnpm build` when risk warrants it; use targeted checks first.
 - Treat Vercel and Convex preview deployments as the normal PR deployment path and mention caveats when publishing or reviewing.
