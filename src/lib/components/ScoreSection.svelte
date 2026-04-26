@@ -1,5 +1,13 @@
 <script lang="ts">
 	import ScoreCircle from './ScoreCircle.svelte';
+	import PersonSimpleWalk from 'phosphor-svelte/lib/PersonSimpleWalk';
+	import Bus from 'phosphor-svelte/lib/Bus';
+	import Storefront from 'phosphor-svelte/lib/Storefront';
+	import SpeakerSlash from 'phosphor-svelte/lib/SpeakerSlash';
+	import GraduationCap from 'phosphor-svelte/lib/GraduationCap';
+	import Warning from 'phosphor-svelte/lib/Warning';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Alert from '$lib/components/ui/alert';
 
 	export type Scores = {
 		gange: number;
@@ -13,11 +21,11 @@
 	let { scores, overall }: Props = $props();
 
 	const SCORE_ITEMS = [
-		{ key: 'gange' as const, label: 'Gangavstand', icon: '🚶' },
-		{ key: 'kollektiv' as const, label: 'Kollektivtilbud', icon: '🚌' },
-		{ key: 'fasiliteter' as const, label: 'Fasiliteter', icon: '🏪' },
-		{ key: 'støy' as const, label: 'Støynivå', icon: '🔇' },
-		{ key: 'skole' as const, label: 'Skoletilbud', icon: '🏫' }
+		{ key: 'gange' as const, label: 'Gangavstand', iconKey: 'walk' },
+		{ key: 'kollektiv' as const, label: 'Kollektivtilbud', iconKey: 'bus' },
+		{ key: 'fasiliteter' as const, label: 'Fasiliteter', iconKey: 'store' },
+		{ key: 'støy' as const, label: 'Støynivå', iconKey: 'noise' },
+		{ key: 'skole' as const, label: 'Skoletilbud', iconKey: 'school' }
 	];
 
 	function scoreColor(s: number) {
@@ -37,7 +45,7 @@
 		{#if overall !== undefined}
 			<div class="overall-value">{scoreLabel(overall)}</div>
 		{:else}
-			<span class="na-badge" style="font-size: 13px; padding: 4px 12px;">N/A</span>
+			<Badge variant="warning" class="text-[13px] px-3 py-1">N/A</Badge>
 		{/if}
 		<div class="overall-sub">Basert på {SCORE_ITEMS.length} faktorer</div>
 	</div>
@@ -50,7 +58,19 @@
 		<div class="score-item">
 			<div class="score-header">
 				<div class="score-name">
-					<span class="score-icon">{item.icon}</span>
+					<span class="score-icon">
+						{#if item.iconKey === 'walk'}
+							<PersonSimpleWalk size={16} />
+						{:else if item.iconKey === 'bus'}
+							<Bus size={16} />
+						{:else if item.iconKey === 'store'}
+							<Storefront size={16} />
+						{:else if item.iconKey === 'noise'}
+							<SpeakerSlash size={16} />
+						{:else if item.iconKey === 'school'}
+							<GraduationCap size={16} />
+						{/if}
+					</span>
 					<span>{item.label}</span>
 				</div>
 				<span class="score-num" style:color={scoreColor(s)}>{s}</span>
@@ -62,22 +82,31 @@
 	{/each}
 {:else}
 	<!-- N/A stub — score calculation not yet implemented -->
-	<div class="na-notice">
-		<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-			<circle cx="7" cy="7" r="6" stroke="#d4860a" stroke-width="1.4" />
-			<path d="M7 4v4M7 9.5v.5" stroke="#d4860a" stroke-width="1.4" stroke-linecap="round" />
-		</svg>
-		Scoreberegning ikke implementert ennå
-	</div>
+	<Alert.Root variant="warning" class="mb-2.5 text-[11.5px]">
+		<Warning size={14} />
+		<Alert.Description>Scoreberegning ikke implementert ennå</Alert.Description>
+	</Alert.Root>
 
 	{#each SCORE_ITEMS as item}
 		<div class="score-item">
 			<div class="score-header">
 				<div class="score-name">
-					<span class="score-icon">{item.icon}</span>
+					<span class="score-icon">
+						{#if item.iconKey === 'walk'}
+							<PersonSimpleWalk size={16} />
+						{:else if item.iconKey === 'bus'}
+							<Bus size={16} />
+						{:else if item.iconKey === 'store'}
+							<Storefront size={16} />
+						{:else if item.iconKey === 'noise'}
+							<SpeakerSlash size={16} />
+						{:else if item.iconKey === 'school'}
+							<GraduationCap size={16} />
+						{/if}
+					</span>
 					<span>{item.label}</span>
 				</div>
-				<span class="na-badge">N/A</span>
+				<Badge variant="warning" class="text-[10px]">N/A</Badge>
 			</div>
 			<div class="bar-track">
 				<div class="bar-fill bar-fill-na"></div>
@@ -168,30 +197,5 @@
 		color: #a8a79e;
 		line-height: 1.55;
 	}
-	.na-notice {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		font-size: 11.5px;
-		color: #d4860a;
-		font-weight: 500;
-		background: #fff8e6;
-		border: 1px solid #f5d98a;
-		border-radius: 8px;
-		padding: 8px 11px;
-		margin-bottom: 10px;
-	}
-	.na-badge {
-		display: inline-flex;
-		align-items: center;
-		background: #fff3b0;
-		border: 1.5px solid #f5b800;
-		color: #7a5c00;
-		font-size: 10px;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		padding: 2px 8px;
-		border-radius: 99px;
-		font-family: 'DM Sans', sans-serif;
-	}
+
 </style>
