@@ -31,7 +31,7 @@
 {#if property}
 	<!-- Key metrics -->
 	<div class="metrics-grid">
-		{#each [{ val: `${property.size} m²`, label: 'Størrelse' }, { val: `${property.rooms} rom`, label: 'Antall rom' }, { val: property.floor, label: 'Etasje' }] as m}
+		{#each [{ val: `${property.size} m²`, label: 'Størrelse' }, { val: `${property.rooms} rom`, label: 'Antall rom' }, { val: property.floor, label: 'Etasje' }] as m (m.label)}
 			<div class="metric-cell">
 				<div class="metric-val">{m.val}</div>
 				<div class="metric-label">{m.label}</div>
@@ -54,14 +54,16 @@
 		{#if property.fellesgjeld > 0}
 			<div class="price-debt">
 				<span>+ Fellesgjeld {fmt(property.fellesgjeld)} kr</span>
-				<span style="font-weight: 600;">Totalt {fmt(property.askingPrice + property.fellesgjeld)} kr</span>
+				<span style="font-weight: 600;"
+					>Totalt {fmt(property.askingPrice + property.fellesgjeld)} kr</span
+				>
 			</div>
 		{/if}
 	</div>
 
 	<!-- Details -->
 	<div>
-		{#each [{ k: 'Boligtype', v: property.type }, { k: 'Byggeår', v: `${property.built}${property.renovated ? ` (renovert ${property.renovated})` : ''}` }, { k: 'Eierform', v: property.eierform }, { k: 'Energimerke', v: property.energimerke }, { k: 'Felleskostnader', v: `${fmt(property.felleskostnader)} kr/mnd` }] as row}
+		{#each [{ k: 'Boligtype', v: property.type }, { k: 'Byggeår', v: `${property.built}${property.renovated ? ` (renovert ${property.renovated})` : ''}` }, { k: 'Eierform', v: property.eierform }, { k: 'Energimerke', v: property.energimerke }, { k: 'Felleskostnader', v: `${fmt(property.felleskostnader)} kr/mnd` }] as row (row.k)}
 			<div class="stat-row">
 				<span class="stat-key">{row.k}</span>
 				<span class="stat-val">{row.v}</span>
@@ -86,7 +88,7 @@
 	</Alert.Root>
 
 	<div class="metrics-grid">
-		{#each ['Størrelse', 'Antall rom', 'Etasje'] as label}
+		{#each ['Størrelse', 'Antall rom', 'Etasje'] as label (label)}
 			<div class="metric-cell">
 				<Badge variant="warning" class="text-[10px]">N/A</Badge>
 				<div class="metric-label">{label}</div>
@@ -108,7 +110,7 @@
 	</div>
 
 	<div>
-		{#each ['Boligtype', 'Byggeår', 'Eierform', 'Energimerke', 'Felleskostnader'] as key}
+		{#each ['Boligtype', 'Byggeår', 'Eierform', 'Energimerke', 'Felleskostnader'] as key (key)}
 			<div class="stat-row">
 				<span class="stat-key">{key}</span>
 				<Badge variant="warning" class="text-[10px]">N/A</Badge>
@@ -238,5 +240,4 @@
 	.finn-link:hover {
 		background: #f0efe9;
 	}
-
 </style>

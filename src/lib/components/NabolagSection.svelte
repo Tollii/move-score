@@ -52,7 +52,7 @@
 </script>
 
 {#if amenities && amenities.length > 0}
-	{#each sorted as amenity}
+	{#each sorted as amenity (`${amenity.type}:${amenity.name}`)}
 		<div class="amenity-row">
 			<div class="amenity-icon">
 				{#if amenity.iconKey === 'grocery'}
@@ -92,7 +92,7 @@
 		<Alert.Description>Nabolagsdata ikke tilgjengelig ennå</Alert.Description>
 	</Alert.Root>
 
-	{#each STUB_ITEMS as item}
+	{#each STUB_ITEMS as item (item.iconKey)}
 		<div class="amenity-row">
 			<div class="amenity-icon">
 				{#if item.iconKey === 'grocery'}
@@ -173,5 +173,4 @@
 		color: #a8a79e;
 		margin-top: 1px;
 	}
-
 </style>

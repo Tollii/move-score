@@ -33,7 +33,15 @@
 	}
 
 	function scoreLabel(s: number) {
-		return s >= 90 ? 'Utmerket' : s >= 80 ? 'Veldig bra' : s >= 70 ? 'Bra' : s >= 60 ? 'Middels' : 'Lavt';
+		return s >= 90
+			? 'Utmerket'
+			: s >= 80
+				? 'Veldig bra'
+				: s >= 70
+					? 'Bra'
+					: s >= 60
+						? 'Middels'
+						: 'Lavt';
 	}
 </script>
 
@@ -45,7 +53,7 @@
 		{#if overall !== undefined}
 			<div class="overall-value">{scoreLabel(overall)}</div>
 		{:else}
-			<Badge variant="warning" class="text-[13px] px-3 py-1">N/A</Badge>
+			<Badge variant="warning" class="px-3 py-1 text-[13px]">N/A</Badge>
 		{/if}
 		<div class="overall-sub">Basert på {SCORE_ITEMS.length} faktorer</div>
 	</div>
@@ -53,7 +61,7 @@
 
 <!-- Sub-scores -->
 {#if scores}
-	{#each SCORE_ITEMS as item}
+	{#each SCORE_ITEMS as item (item.key)}
 		{@const s = scores[item.key]}
 		<div class="score-item">
 			<div class="score-header">
@@ -87,7 +95,7 @@
 		<Alert.Description>Scoreberegning ikke implementert ennå</Alert.Description>
 	</Alert.Root>
 
-	{#each SCORE_ITEMS as item}
+	{#each SCORE_ITEMS as item (item.key)}
 		<div class="score-item">
 			<div class="score-header">
 				<div class="score-name">
@@ -197,5 +205,4 @@
 		color: #a8a79e;
 		line-height: 1.55;
 	}
-
 </style>

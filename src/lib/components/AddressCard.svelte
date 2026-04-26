@@ -83,7 +83,9 @@
 		<div class="flex gap-1.5">
 			<Button
 				variant="secondary"
-				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'walk' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}"
+				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'walk'
+					? 'bg-primary text-primary-foreground hover:bg-primary/90'
+					: ''}"
 				disabled={isLoading}
 				onclick={() => onShowIsochrones('walk')}
 			>
@@ -96,7 +98,9 @@
 			</Button>
 			<Button
 				variant="secondary"
-				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'transit' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}"
+				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'transit'
+					? 'bg-primary text-primary-foreground hover:bg-primary/90'
+					: ''}"
 				disabled={isLoading}
 				onclick={() => onShowIsochrones('transit')}
 			>
@@ -115,7 +119,7 @@
 		<Tabs.Root bind:value={activeTab} class="flex flex-col">
 			<div class="px-3 pt-2.5">
 				<Tabs.List class="w-full">
-					{#each TABS as tab}
+					{#each TABS as tab (tab.id)}
 						<Tabs.Trigger value={tab.id} class="flex-1 text-[11px]">
 							{tab.label}
 						</Tabs.Trigger>
@@ -123,7 +127,11 @@
 				</Tabs.List>
 			</div>
 
-			<div bind:this={scrollEl} class="max-h-[340px] overflow-y-auto px-4 pb-4 pt-3" style="scrollbar-width: thin; scrollbar-color: #e5e4de transparent;">
+			<div
+				bind:this={scrollEl}
+				class="max-h-[340px] overflow-y-auto px-4 pt-3 pb-4"
+				style="scrollbar-width: thin; scrollbar-color: #e5e4de transparent;"
+			>
 				<Tabs.Content value="eiendom">
 					<EiendomSection {property} />
 				</Tabs.Content>

@@ -160,7 +160,7 @@
 		<input
 			id="address-lookup"
 			type="search"
-			class="w-full rounded-[var(--radius-lg)] border border-white/10 bg-[var(--color-paper)] px-4 py-3.5 text-[0.9375rem] font-semibold text-[var(--color-ink)] shadow-[var(--shadow-small)] outline-none transition placeholder:font-normal placeholder:text-[var(--color-ink-soft)]/45 focus:border-[var(--color-accent)]/60 focus:ring-3 focus:ring-[var(--color-accent)]/20"
+			class="w-full rounded-[var(--radius-lg)] border border-white/10 bg-[var(--color-paper)] px-4 py-3.5 text-[0.9375rem] font-semibold text-[var(--color-ink)] shadow-[var(--shadow-small)] transition outline-none placeholder:font-normal placeholder:text-[var(--color-ink-soft)]/45 focus:border-[var(--color-accent)]/60 focus:ring-3 focus:ring-[var(--color-accent)]/20"
 			{placeholder}
 			autocomplete="street-address"
 			bind:value={query}
@@ -200,7 +200,7 @@
 							onclick={() => selectAddress(address)}
 						>
 							<span
-								class="block text-[0.875rem] font-bold leading-snug text-[var(--color-ink)] transition-transform duration-150 group-hover:translate-x-0.5 motion-safe:transition-transform"
+								class="block text-[0.875rem] leading-snug font-bold text-[var(--color-ink)] transition-transform duration-150 group-hover:translate-x-0.5 motion-safe:transition-transform"
 								>{formatAddress(address)}</span
 							>
 							<span class="mt-0.5 block text-xs font-medium text-[var(--color-ink-soft)]/60"

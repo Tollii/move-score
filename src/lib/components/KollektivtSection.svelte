@@ -37,7 +37,7 @@
 </script>
 
 {#if transit && transit.length > 0}
-	{#each transit as stop}
+	{#each transit as stop (stop.name)}
 		<div class="transit-row">
 			<div
 				class="type-icon"
@@ -45,14 +45,14 @@
 				style:border="1px solid {typeColors[stop.type]}30"
 			>
 				{#if stop.type === 'metro'}
-				<Subway size={18} />
-			{:else if stop.type === 'tram'}
-				<TramIcon size={18} />
-			{:else if stop.type === 'bus'}
-				<BusIcon size={18} />
-			{:else if stop.type === 'train'}
-				<TrainIcon size={18} />
-			{/if}
+					<Subway size={18} />
+				{:else if stop.type === 'tram'}
+					<TramIcon size={18} />
+				{:else if stop.type === 'bus'}
+					<BusIcon size={18} />
+				{:else if stop.type === 'train'}
+					<TrainIcon size={18} />
+				{/if}
 			</div>
 			<div class="stop-info">
 				<div class="stop-header">
@@ -60,13 +60,13 @@
 					<span class="stop-type">{typeLabel[stop.type]}</span>
 				</div>
 				<div class="lines">
-					{#each stop.lines.slice(0, 6) as line}
+					{#each stop.lines.slice(0, 6) as line (line.num)}
 						<span
 							class="line-badge"
 							style:background="{line.color}22"
 							style:color={line.color}
-							style:border="1px solid {line.color}40"
-						>{line.num}</span>
+							style:border="1px solid {line.color}40">{line.num}</span
+						>
 					{/each}
 					{#if stop.lines.length > 6}
 						<span class="lines-overflow">+{stop.lines.length - 6}</span>
@@ -77,7 +77,12 @@
 				<div class="walk-time">
 					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
 						<circle cx="6" cy="2" r="1.2" fill="#A8A79E" />
-						<path d="M6 3.5L4.5 7l1.5 3M6 3.5L7.5 7 6 10M4.5 5.5h3" stroke="#A8A79E" stroke-width="1.2" stroke-linecap="round" />
+						<path
+							d="M6 3.5L4.5 7l1.5 3M6 3.5L7.5 7 6 10M4.5 5.5h3"
+							stroke="#A8A79E"
+							stroke-width="1.2"
+							stroke-linecap="round"
+						/>
 					</svg>
 					<span>{stop.walk} min</span>
 				</div>
@@ -92,7 +97,7 @@
 		<Alert.Description>Kollektivdata ikke tilgjengelig ennå</Alert.Description>
 	</Alert.Root>
 
-	{#each STUB_STOPS as label, i}
+	{#each STUB_STOPS as label, i (label)}
 		<div class="transit-row">
 			<div class="type-icon" style:background="#f5f4ee" style:border="1px solid #e5e4de">
 				{#if i === 0}
@@ -203,5 +208,4 @@
 		color: #a8a79e;
 		margin-top: 1px;
 	}
-
 </style>
