@@ -29,8 +29,7 @@ export const getTransitIsochrone = action({
 		if (ranges.length === 0) {
 			throw new Error('Transit isochrone ranges must be between 1 and 120 minutes');
 		}
-		const cacheKey = `transit:targomo:${ISOCHRONE_CACHE_VERSION}:${lat.toFixed(5)}:${lon.toFixed(5)}:${ranges.join(',')}`;
-		console.log('[isochrones.getTransitIsochrone] start', { cacheKey, lat, lon, minutes: ranges });
+		console.log('[isochrones.getTransitIsochrone] start', { lat, lon, minutes: ranges });
 
 		const apiKey = process.env.TARGOMO_API_KEY;
 		if (!apiKey) {
@@ -40,7 +39,7 @@ export const getTransitIsochrone = action({
 		const { date, time } = nextTuesdayMorning();
 		const values = ranges.map((m) => m * 60);
 
-		console.log('[isochrones.getTransitIsochrone] fetching Targomo', { cacheKey, date, time, values });
+		console.log('[isochrones.getTransitIsochrone] fetching Targomo', { date, time, values });
 		const res = await fetch(`${TARGOMO_BASE}/polygon_post?key=${apiKey}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -52,10 +51,13 @@ export const getTransitIsochrone = action({
 				transitFrameTime: time
 			})
 		});
-		console.log('[isochrones.getTransitIsochrone] Targomo response', { cacheKey, status: res.status, ok: res.ok });
+		console.log('[isochrones.getTransitIsochrone] Targomo response', {
+			status: res.status,
+			ok: res.ok
+		});
 		if (!res.ok) {
 			const body = await res.text();
-			console.log('[isochrones.getTransitIsochrone] Targomo error', { cacheKey, status: res.status, body });
+			console.log('[isochrones.getTransitIsochrone] Targomo error', { status: res.status, body });
 			throw new Error(`Targomo ${res.status}: ${body}`);
 		}
 
@@ -169,9 +171,8 @@ export const saveCache = mutation({
 		cacheKey: v.string(),
 		lat: v.number(),
 		lon: v.number(),
-		mode: v.union(v.literal('walk'), v.literal('transit'), v.literal('bike')),
+		mode: v.literal('walk'),
 		minutes: v.array(v.number()),
-		departAt: v.optional(v.string()),
 		geojsonJson: v.string(),
 		ttlDays: v.number()
 	},
@@ -239,8 +240,10 @@ function normalizeTargomoGeojson(geojson: unknown, ranges: number[]) {
 // Tuesday avoids weekend/Monday-anomaly schedules.
 function nextTuesdayMorning(): { date: number; time: number } {
 	const now = new Date();
-	const daysUntil = ((2 - now.getUTCDay() + 7) % 7) || 7;
-	const tuesday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntil));
+	const daysUntil = (2 - now.getUTCDay() + 7) % 7 || 7;
+	const tuesday = new Date(
+		Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntil)
+	);
 	const y = tuesday.getUTCFullYear();
 	const m = String(tuesday.getUTCMonth() + 1).padStart(2, '0');
 	const d = String(tuesday.getUTCDate()).padStart(2, '0');

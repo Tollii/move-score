@@ -5,15 +5,14 @@ import { v } from 'convex/values';
 export default defineSchema({
 	// Cached isochrones. Key is a deterministic hash of the query params.
 	isochrones: defineTable({
-		cacheKey: v.string(), // hash(lat, lon, mode, minutes, departAt)
+		cacheKey: v.string(), // hash(lat, lon, mode, minutes)
 		lat: v.number(),
 		lon: v.number(),
-		mode: v.union(v.literal('walk'), v.literal('transit'), v.literal('bike')),
+		mode: v.literal('walk'),
 		minutes: v.array(v.number()), // e.g. [5, 10, 15, 20]
-		departAt: v.optional(v.string()), // ISO8601, only for transit
 		geojson: v.string(), // Stringified FeatureCollection of polygons
 		computedAt: v.number(), // Date.now()
-		ttlDays: v.number() // walk=90, transit=14
+		ttlDays: v.number() // walk=90
 	})
 		.index('by_cacheKey', ['cacheKey'])
 		.index('by_computedAt', ['computedAt']),
