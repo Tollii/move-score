@@ -3,6 +3,7 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type maplibregl from 'maplibre-gl';
 	import { useConvexClient } from 'convex-svelte';
+	import { difference, featureCollection } from '@turf/turf';
 	import { api } from '../../convex/_generated/api';
 	import type { GeonorgeAddress } from '$lib/geonorge/address';
 
@@ -10,6 +11,8 @@
 		selectedAddress?: GeonorgeAddress;
 		class?: string;
 		triggerKey?: number;
+		mode?: 'walk' | 'transit';
+		visibleBandMinutes?: number[];
 		isLoading?: boolean;
 		error?: string | undefined;
 	};
@@ -19,6 +22,10 @@
 	};
 
 	type IsochroneFeature = GeoJSON.Feature<GeoJSON.Geometry, IsochroneProperties>;
+	type IsochronePolygonFeature = GeoJSON.Feature<
+		GeoJSON.Polygon | GeoJSON.MultiPolygon,
+		IsochroneProperties
+	>;
 	type IsochroneFeatureCollection = GeoJSON.FeatureCollection<
 		GeoJSON.Geometry,
 		IsochroneProperties
@@ -28,6 +35,8 @@
 		selectedAddress,
 		class: className = '',
 		triggerKey = 0,
+		mode = 'walk',
+		visibleBandMinutes,
 		isLoading = $bindable(false),
 		error = $bindable<string | undefined>(undefined)
 	}: Props = $props();
@@ -38,6 +47,9 @@
 	let mapReady = $state(false);
 	let origin = $state<{ lat: number; lon: number } | null>(null);
 	let isochrone = $state<IsochroneFeatureCollection | null>(null);
+	let walkIsochrone = $state<IsochroneFeatureCollection | null>(null);
+	let renderedIsochrone = $state<IsochroneFeatureCollection | null>(null);
+	let renderedWalkIsochrone = $state<IsochroneFeatureCollection | null>(null);
 	let selectedOriginKey = '';
 	let activeRequestKey = '';
 	let loadedIsochroneKey = '';
@@ -47,10 +59,19 @@
 	const client = useConvexClient();
 
 	const WALK_BANDS = [
-		{ minutes: 5, color: '#0f766e', label: '0–5 min' },
-		{ minutes: 10, color: '#22c55e', label: '5–10 min' },
-		{ minutes: 15, color: '#eab308', label: '10–15 min' },
-		{ minutes: 20, color: '#ef4444', label: '15–20 min' }
+		{ minutes: 5, color: '#16a34a', label: '0–5 min' },
+		{ minutes: 10, color: '#ca8a04', label: '5–10 min' },
+		{ minutes: 15, color: '#ea580c', label: '10–15 min' },
+		{ minutes: 20, color: '#dc2626', label: '15–20 min' }
+	];
+
+	const TRANSIT_BANDS = [
+		{ minutes: 10, color: '#059669', label: '0–10 min' },
+		{ minutes: 15, color: '#65a30d', label: '10–15 min' },
+		{ minutes: 20, color: '#d97706', label: '15–20 min' },
+		{ minutes: 30, color: '#ea580c', label: '20–30 min' },
+		{ minutes: 45, color: '#dc2626', label: '30–45 min' },
+		{ minutes: 60, color: '#9f1239', label: '45–60 min' }
 	];
 
 	onMount(() => {
@@ -104,10 +125,13 @@
 		}
 
 		selectedOriginKey = originKey;
-		activeRequestKey = originKey;
+		activeRequestKey = '';
 		loadedIsochroneKey = '';
 		origin = { lat: point.lat, lon: point.lon };
 		isochrone = null;
+		walkIsochrone = null;
+		renderedIsochrone = null;
+		renderedWalkIsochrone = null;
 		error = undefined;
 		clearIsochroneLayers();
 		moveMapToOrigin();
@@ -117,21 +141,31 @@
 		const key = triggerKey;
 		if (key > 0 && key !== lastTriggerKey) {
 			lastTriggerKey = key;
-			untrack(showWalkIsochrone);
+			untrack(showIsochrone);
 		}
 	});
 
-	function showWalkIsochrone() {
+	$effect(() => {
+		visibleBandMinutes;
+		mode;
+		if (renderedIsochrone && loadedIsochroneKey === `${selectedOriginKey}:${mode}`) {
+			untrack(() => renderIsochrone({ moveCamera: false }));
+		}
+	});
+
+	function showIsochrone() {
 		if (!origin) {
 			return;
 		}
 
-		if (isochrone && loadedIsochroneKey === selectedOriginKey) {
-			renderIsochrone();
+		const requestKey = `${selectedOriginKey}:${mode}`;
+		if (renderedIsochrone && loadedIsochroneKey === requestKey) {
+			renderIsochrone({ moveCamera: true });
 			return;
 		}
 
-		void loadIsochrone(origin.lat, origin.lon, selectedOriginKey);
+		activeRequestKey = requestKey;
+		void loadIsochrone(origin.lat, origin.lon, requestKey);
 	}
 
 	async function loadIsochrone(lat: number, lon: number, requestKey: string) {
@@ -139,30 +173,60 @@
 		error = undefined;
 
 		try {
-			const geojson = (await client.action(api.isochrones.getWalkIsochrone, {
-				lat,
-				lon,
-				minutes: WALK_BANDS.map((band) => band.minutes)
-			})) as IsochroneFeatureCollection;
+			const currentMode = mode;
 
-			if (activeRequestKey !== requestKey) {
-				return;
+			if (currentMode === 'transit') {
+				const [transitGeojson, walkGeojson] = await Promise.all([
+					client.action(api.isochrones.getTransitIsochrone, {
+						lat,
+						lon,
+						minutes: TRANSIT_BANDS.map((b) => b.minutes)
+					}),
+					client.action(api.isochrones.getWalkIsochrone, {
+						lat,
+						lon,
+						minutes: WALK_BANDS.map((b) => b.minutes)
+					})
+				]);
+
+				if (activeRequestKey !== requestKey) return;
+
+				isochrone = parseIsochrone(transitGeojson);
+				walkIsochrone = parseIsochrone(walkGeojson);
+				renderedIsochrone = prepareIsochroneForRendering(isochrone);
+				renderedWalkIsochrone = prepareIsochroneForRendering(walkIsochrone);
+			} else {
+				const geojson = await client.action(api.isochrones.getWalkIsochrone, {
+					lat,
+					lon,
+					minutes: WALK_BANDS.map((b) => b.minutes)
+				});
+
+				if (activeRequestKey !== requestKey) return;
+
+				isochrone = parseIsochrone(geojson);
+				walkIsochrone = null;
+				renderedIsochrone = prepareIsochroneForRendering(isochrone);
+				renderedWalkIsochrone = null;
 			}
 
-			isochrone = geojson;
 			loadedIsochroneKey = requestKey;
-			renderIsochrone();
+			renderIsochrone({ moveCamera: true });
 		} catch (err) {
-			if (activeRequestKey !== requestKey) {
-				return;
-			}
+			if (activeRequestKey !== requestKey) return;
 
 			isochrone = null;
+			walkIsochrone = null;
+			renderedIsochrone = null;
+			renderedWalkIsochrone = null;
 			loadedIsochroneKey = '';
 			clearIsochroneLayers();
-			error = isRateLimitError(err)
-				? 'Mapbox har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes igjen om litt.'
-				: 'Kunne ikke hente gangavstand for valgt adresse.';
+			error =
+				mode === 'transit'
+					? 'Kunne ikke hente kollektivrekkevidden for valgt adresse.'
+					: isRateLimitError(err)
+						? 'Mapbox har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes igjen om litt.'
+						: 'Kunne ikke hente gangavstand for valgt adresse.';
 		} finally {
 			if (activeRequestKey === requestKey) {
 				isLoading = false;
@@ -170,11 +234,33 @@
 		}
 	}
 
-	function renderIsochrone() {
-		if (!map || !isochrone) return;
+	function renderIsochrone({ moveCamera = false }: { moveCamera?: boolean } = {}) {
+		if (!map || !renderedIsochrone) return;
 		clearIsochroneLayers();
-		const polygonFeatures = [...isochrone.features]
-			.filter((feature) => isPolygonGeometry(feature.geometry))
+
+		// When transit is shown, draw walk isochrone as ghost reference underneath
+		if (mode === 'transit' && renderedWalkIsochrone) {
+			const ghostFeatures = [...renderedWalkIsochrone.features]
+				.filter(isPolygonFeature)
+				.sort((a, b) => featureValue(b) - featureValue(a));
+
+			for (const [index, feature] of ghostFeatures.entries()) {
+				const id = `iso-walk-ghost-${featureValue(feature)}-${index}`;
+				const color = walkBandColor(feature);
+				map.addSource(id, { type: 'geojson', data: feature });
+				map.addLayer({
+					id,
+					type: 'fill',
+					source: id,
+					paint: { 'fill-color': color, 'fill-opacity': 0.045, 'fill-outline-color': color }
+				});
+				renderedIsochroneLayerIds = [...renderedIsochroneLayerIds, id];
+			}
+		}
+
+		const polygonFeatures = [...renderedIsochrone.features]
+			.filter(isPolygonFeature)
+			.filter((feature) => isBandVisible(feature))
 			.sort((a, b) => featureValue(b) - featureValue(a));
 
 		for (const [index, feature] of polygonFeatures.entries()) {
@@ -187,14 +273,41 @@
 				source: id,
 				paint: {
 					'fill-color': color,
-					'fill-opacity': 0.28,
+					'fill-opacity': featureFillOpacity(feature),
 					'fill-outline-color': color
 				}
 			});
-			renderedIsochroneLayerIds = [...renderedIsochroneLayerIds, id];
+
+			const outlineId = `${id}-outline`;
+			map.addLayer({
+				id: outlineId,
+				type: 'line',
+				source: id,
+				paint: {
+					'line-color': color,
+					'line-opacity': featureLineOpacity(feature),
+					'line-width': featureLineWidth(feature)
+				}
+			});
+			renderedIsochroneLayerIds = [...renderedIsochroneLayerIds, id, outlineId];
 		}
 
-		moveMapToOrigin();
+		if (moveCamera) {
+			moveMapToOrigin();
+		}
+	}
+
+	function parseIsochrone(value: unknown): IsochroneFeatureCollection {
+		return (typeof value === 'string' ? JSON.parse(value) : value) as IsochroneFeatureCollection;
+	}
+
+	function prepareIsochroneForRendering(
+		featureCollection: IsochroneFeatureCollection
+	): IsochroneFeatureCollection {
+		return {
+			...featureCollection,
+			features: exclusiveBandFeatures(featureCollection.features)
+		};
 	}
 
 	function moveMapToOrigin() {
@@ -261,10 +374,90 @@
 		return Number(value ?? 0);
 	}
 
+	function exclusiveBandFeatures(features: IsochroneFeature[]) {
+		const cumulativeFeatures = features
+			.filter(isPolygonFeature)
+			.sort((a, b) => featureValue(a) - featureValue(b));
+
+		return cumulativeFeatures.map((feature, index) => {
+			const innerFeature = cumulativeFeatures[index - 1];
+			if (!innerFeature) {
+				return feature;
+			}
+
+			try {
+				const ring = difference(featureCollection([feature, innerFeature]));
+				if (!ring || !isPolygonGeometry(ring.geometry)) {
+					return feature;
+				}
+
+				return {
+					...ring,
+					properties: feature.properties
+				} satisfies IsochronePolygonFeature;
+			} catch {
+				return feature;
+			}
+		});
+	}
+
 	function featureColor(feature: IsochroneFeature) {
 		const minutes = featureValue(feature) / 60;
+		const bands = mode === 'transit' ? TRANSIT_BANDS : WALK_BANDS;
 		return (
-			WALK_BANDS.find((band) => Math.abs(band.minutes - minutes) < 0.5)?.color ??
+			bands.find((b) => Math.abs(b.minutes - minutes) < 0.5)?.color ?? bands[bands.length - 1].color
+		);
+	}
+
+	function featureFillOpacity(feature: IsochroneFeature) {
+		if (mode !== 'transit') {
+			return 0.32;
+		}
+
+		const minutes = featureValue(feature) / 60;
+		if (minutes <= 10) return 0.46;
+		if (minutes <= 15) return 0.4;
+		if (minutes <= 20) return 0.36;
+		if (minutes <= 30) return 0.32;
+		if (minutes <= 45) return 0.28;
+		return 0.24;
+	}
+
+	function featureLineOpacity(feature: IsochroneFeature) {
+		if (mode !== 'transit') {
+			return 0.42;
+		}
+
+		const minutes = featureValue(feature) / 60;
+		if (minutes <= 20) return 0.62;
+		if (minutes <= 30) return 0.5;
+		return 0.42;
+	}
+
+	function featureLineWidth(feature: IsochroneFeature) {
+		if (mode !== 'transit') {
+			return 1.2;
+		}
+
+		const minutes = featureValue(feature) / 60;
+		if (minutes <= 20) return 1.4;
+		if (minutes <= 30) return 1.2;
+		return 1;
+	}
+
+	function isBandVisible(feature: IsochroneFeature) {
+		if (!visibleBandMinutes) {
+			return true;
+		}
+
+		const minutes = featureValue(feature) / 60;
+		return visibleBandMinutes.some((band) => Math.abs(band - minutes) < 0.5);
+	}
+
+	function walkBandColor(feature: IsochroneFeature) {
+		const minutes = featureValue(feature) / 60;
+		return (
+			WALK_BANDS.find((b) => Math.abs(b.minutes - minutes) < 0.5)?.color ??
 			WALK_BANDS[WALK_BANDS.length - 1].color
 		);
 	}
@@ -273,6 +466,10 @@
 		geometry: GeoJSON.Geometry | null
 	): geometry is GeoJSON.Polygon | GeoJSON.MultiPolygon {
 		return geometry?.type === 'Polygon' || geometry?.type === 'MultiPolygon';
+	}
+
+	function isPolygonFeature(feature: IsochroneFeature): feature is IsochronePolygonFeature {
+		return isPolygonGeometry(feature.geometry);
 	}
 
 	function isRateLimitError(err: unknown) {

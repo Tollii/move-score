@@ -13,18 +13,20 @@
 	type Props = {
 		address: GeonorgeAddress;
 		isochronesShown: boolean;
+		activeMode?: 'walk' | 'transit';
 		isLoading?: boolean;
 		property?: PropertyData;
 		transit?: TransitStop[];
 		amenities?: Amenity[];
 		scores?: Scores;
 		overallScore?: number;
-		onShowIsochrones: () => void;
+		onShowIsochrones: (mode: 'walk' | 'transit') => void;
 	};
 
 	let {
 		address,
 		isochronesShown,
+		activeMode = 'walk',
 		isLoading = false,
 		property,
 		transit,
@@ -76,22 +78,34 @@
 
 	<!-- CTA -->
 	<div class="walk-section" class:no-border={!isochronesShown}>
-		<button class="btn-primary" onclick={onShowIsochrones} disabled={isLoading}>
-			{#if isLoading}
-				<span class="spinner"></span>
-				Beregner…
-			{:else if isochronesShown}
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-					<path d="M11.5 7A4.5 4.5 0 1 1 7 2.5a4.5 4.5 0 0 1 3.2 1.3L13 1.5" stroke="#1A1A18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-				</svg>
-				Oppdater
-			{:else}
-				Vis gangavstand
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-					<path d="M2 7h10M8 3l4 4-4 4" stroke="#1A1A18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-				</svg>
-			{/if}
-		</button>
+		<div class="mode-btns">
+			<button
+				class="mode-btn"
+				class:active={isochronesShown && activeMode === 'walk'}
+				onclick={() => onShowIsochrones('walk')}
+				disabled={isLoading}
+			>
+				{#if isLoading && activeMode === 'walk'}
+					<span class="spinner"></span>
+				{:else}
+					<span class="mode-icon">🚶</span>
+				{/if}
+				Gangavstand
+			</button>
+			<button
+				class="mode-btn"
+				class:active={isochronesShown && activeMode === 'transit'}
+				onclick={() => onShowIsochrones('transit')}
+				disabled={isLoading}
+			>
+				{#if isLoading && activeMode === 'transit'}
+					<span class="spinner"></span>
+				{:else}
+					<span class="mode-icon">🚌</span>
+				{/if}
+				Kollektivt
+			</button>
+		</div>
 	</div>
 
 	<!-- Dashboard tabs — only shown after isochrones are rendered -->
@@ -165,39 +179,53 @@
 	.walk-section.no-border {
 		border-bottom: none;
 	}
-.btn-primary {
-		width: 100%;
-		background: #f5b800;
-		color: #1a1a18;
+	.mode-btns {
+		display: flex;
+		gap: 6px;
+	}
+	.mode-btn {
+		flex: 1;
+		background: #f0efe9;
+		color: #6b6b66;
 		border: none;
 		border-radius: 9px;
 		font-family: 'DM Sans', sans-serif;
-		font-size: 14px;
+		font-size: 13px;
 		font-weight: 600;
-		padding: 11px 16px;
+		padding: 10px 8px;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 6px;
+		gap: 5px;
 		transition:
 			background 0.12s,
+			color 0.12s,
 			transform 0.1s;
 		letter-spacing: -0.01em;
 	}
-	.btn-primary:hover:not(:disabled) {
-		background: #edaf00;
+	.mode-btn:hover:not(:disabled):not(.active) {
+		background: #e5e4de;
+		color: #1a1a18;
 	}
-	.btn-primary:active:not(:disabled) {
+	.mode-btn.active {
+		background: #f5b800;
+		color: #1a1a18;
+	}
+	.mode-btn:active:not(:disabled) {
 		transform: scale(0.98);
 	}
-	.btn-primary:disabled {
+	.mode-btn:disabled {
 		opacity: 0.7;
 		cursor: not-allowed;
 	}
+	.mode-icon {
+		font-size: 14px;
+		line-height: 1;
+	}
 	.spinner {
-		width: 14px;
-		height: 14px;
+		width: 13px;
+		height: 13px;
 		border: 2px solid rgba(26, 26, 24, 0.25);
 		border-top-color: #1a1a18;
 		border-radius: 50%;
