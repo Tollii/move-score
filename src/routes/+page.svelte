@@ -1,44 +1,86 @@
 <script lang="ts">
-	import { AddressLookup, MoveScoreMap, type GeonorgeAddress } from '$lib';
+	import { onMount } from 'svelte';
+	import { AddressLookup, MoveScoreMap, searchGeonorgeAddresses, type GeonorgeAddress } from '$lib';
 	import AddressCard from '$lib/components/AddressCard.svelte';
 
-	const defaultAddress: GeonorgeAddress = {
-		adressenavn: 'Slottsplassen',
-		adressetekst: 'Slottsplassen 1',
-		adressetilleggsnavn: null,
-		adressekode: 21608,
-		nummer: 1,
-		bokstav: '',
-		kommunenummer: '0301',
-		kommunenavn: 'OSLO',
-		gardsnummer: 209,
-		bruksnummer: 25,
-		festenummer: 0,
-		undernummer: null,
-		bruksenhetsnummer: [],
-		objtype: 'Vegadresse',
-		poststed: 'OSLO',
-		postnummer: '0010',
-		adressetekstutenadressetilleggsnavn: 'Slottsplassen 1',
-		stedfestingverifisert: true,
-		representasjonspunkt: {
-			epsg: 'EPSG:4258',
-			lat: 59.917063045432855,
-			lon: 10.727724636631736
-		},
-		oppdateringsdato: '2020-06-15T18:07:07'
-	};
+	const ADDRESS_QUERY_PARAM = 'address';
 
-	let selectedAddress = $state<GeonorgeAddress | undefined>(defaultAddress);
+	let selectedAddress = $state<GeonorgeAddress | undefined>();
 	let isochroneLoading = $state(false);
 	let isochroneError = $state<string | undefined>();
 	let triggerKey = $state(0);
 	let isochronesShown = $state(false);
 
+	onMount(() => {
+		void selectAddressFromUrl();
+		globalThis.addEventListener('popstate', handlePopState);
+
+		return () => {
+			globalThis.removeEventListener('popstate', handlePopState);
+		};
+	});
+
 	function handleAddressSelect(address: GeonorgeAddress) {
 		selectedAddress = address;
 		isochroneError = undefined;
 		isochronesShown = false;
+		updateAddressQueryParam(address);
+	}
+
+	function handlePopState() {
+		void selectAddressFromUrl();
+	}
+
+	async function selectAddressFromUrl() {
+		const queryAddress = new URL(globalThis.location.href).searchParams
+			.get(ADDRESS_QUERY_PARAM)
+			?.trim();
+
+		if (!queryAddress) {
+			selectedAddress = undefined;
+			isochroneError = undefined;
+			isochronesShown = false;
+			return;
+		}
+
+		try {
+			const response = await searchGeonorgeAddresses({
+				sok: queryAddress,
+				fuzzy: true,
+				treffPerSide: 1
+			});
+
+			const [address] = response.adresser;
+			if (!address) {
+				return;
+			}
+
+			selectedAddress = address;
+			isochroneError = undefined;
+			isochronesShown = false;
+			updateAddressQueryParam(address, 'replace');
+		} catch (error) {
+			console.error('Could not load address from URL', error);
+		}
+	}
+
+	function updateAddressQueryParam(address: GeonorgeAddress, mode: 'push' | 'replace' = 'push') {
+		const url = new URL(globalThis.location.href);
+		url.searchParams.set(ADDRESS_QUERY_PARAM, formatAddress(address));
+
+		if (url.href === globalThis.location.href) {
+			return;
+		}
+
+		globalThis.history[mode === 'replace' ? 'replaceState' : 'pushState']({}, '', url);
+	}
+
+	function formatAddress(address: GeonorgeAddress) {
+		const addressText = address.adressetekst ?? address.adressetekstutenadressetilleggsnavn;
+		const place = [address.postnummer, address.poststed].filter(Boolean).join(' ');
+		const municipality = address.kommunenavn ? `(${address.kommunenavn})` : '';
+
+		return [addressText, place, municipality].filter(Boolean).join(', ');
 	}
 
 	function handleShowIsochrones() {
@@ -62,7 +104,9 @@
 	/>
 </svelte:head>
 
-<main style="position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #f0efe9;">
+<main
+	style="position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #f0efe9;"
+>
 	<!-- Map layer -->
 	<MoveScoreMap
 		class="absolute inset-0 h-full w-full"
@@ -80,7 +124,13 @@
 			<div class="logo">
 				<svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
 					<circle cx="6.5" cy="6.5" r="6.5" fill="#F5B800" />
-					<path d="M3.5 6.5l2 2 4-4" stroke="#1A1A18" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+					<path
+						d="M3.5 6.5l2 2 4-4"
+						stroke="#1A1A18"
+						stroke-width="1.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
 				</svg>
 				<span class="logo-text">Move Score</span>
 			</div>
@@ -96,10 +146,12 @@
 				{#if !selectedAddress}
 					<div class="lbl">Adresse</div>
 				{/if}
-				<AddressLookup
-					defaultQuery="Slottsplassen 1, 0010 OSLO (OSLO)"
-					onSelect={handleAddressSelect}
-				/>
+				{#key selectedAddress ? formatAddress(selectedAddress) : ''}
+					<AddressLookup
+						defaultQuery={selectedAddress ? formatAddress(selectedAddress) : ''}
+						onSelect={handleAddressSelect}
+					/>
+				{/key}
 			</div>
 
 			{#if isochroneError}
