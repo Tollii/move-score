@@ -11,7 +11,7 @@ export default defineSchema({
 		mode: v.union(v.literal('walk'), v.literal('transit'), v.literal('bike')),
 		minutes: v.array(v.number()), // e.g. [5, 10, 15, 20]
 		departAt: v.optional(v.string()), // ISO8601, only for transit
-		geojson: v.any(), // FeatureCollection of polygons
+		geojson: v.string(), // Stringified FeatureCollection of polygons
 		computedAt: v.number(), // Date.now()
 		ttlDays: v.number() // walk=90, transit=14
 	})

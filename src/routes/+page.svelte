@@ -10,6 +10,9 @@
 	let isochroneError = $state<string | undefined>();
 	let triggerKey = $state(0);
 	let isochronesShown = $state(false);
+	let isochroneMode = $state<'walk' | 'transit'>('walk');
+	let visibleWalkBands = $state([5, 10, 15, 20]);
+	let visibleTransitBands = $state([10, 15, 20, 30, 45, 60]);
 
 	onMount(() => {
 		void selectAddressFromUrl();
@@ -86,17 +89,48 @@
 		return [addressText, place, municipality].filter(Boolean).join(', ');
 	}
 
-	function handleShowIsochrones() {
+	function handleShowIsochrones(mode: 'walk' | 'transit') {
+		isochroneMode = mode;
 		isochronesShown = true;
 		triggerKey++;
 	}
 
 	const WALK_BANDS = [
-		{ color: '#3a7a52', label: '0–5 min' },
-		{ color: '#7fb069', label: '5–10 min' },
-		{ color: '#F5B800', label: '10–15 min' },
-		{ color: '#e05a2b', label: '15–20 min' }
+		{ minutes: 5, color: '#16a34a', label: '0–5 min' },
+		{ minutes: 10, color: '#ca8a04', label: '5–10 min' },
+		{ minutes: 15, color: '#ea580c', label: '10–15 min' },
+		{ minutes: 20, color: '#dc2626', label: '15–20 min' }
 	];
+
+	const TRANSIT_BANDS = [
+		{ minutes: 10, color: '#059669', label: '0–10 min' },
+		{ minutes: 15, color: '#65a30d', label: '10–15 min' },
+		{ minutes: 20, color: '#d97706', label: '15–20 min' },
+		{ minutes: 30, color: '#ea580c', label: '20–30 min' },
+		{ minutes: 45, color: '#dc2626', label: '30–45 min' },
+		{ minutes: 60, color: '#9f1239', label: '45–60 min' }
+	];
+
+	const visibleBandMinutes = $derived(
+		isochroneMode === 'transit' ? visibleTransitBands : visibleWalkBands
+	);
+
+	function toggleBand(minutes: number) {
+		const visible = isochroneMode === 'transit' ? visibleTransitBands : visibleWalkBands;
+		const next = visible.includes(minutes)
+			? visible.filter((band) => band !== minutes)
+			: [...visible, minutes].sort((a, b) => a - b);
+
+		if (isochroneMode === 'transit') {
+			visibleTransitBands = next;
+		} else {
+			visibleWalkBands = next;
+		}
+	}
+
+	function isBandVisible(minutes: number) {
+		return visibleBandMinutes.includes(minutes);
+	}
 </script>
 
 <svelte:head>
@@ -115,6 +149,8 @@
 		class="absolute inset-0 h-full w-full"
 		{selectedAddress}
 		{triggerKey}
+		mode={isochroneMode}
+		{visibleBandMinutes}
 		bind:isLoading={isochroneLoading}
 		bind:error={isochroneError}
 	/>
@@ -167,6 +203,7 @@
 			<AddressCard
 				address={selectedAddress}
 				{isochronesShown}
+				activeMode={isochroneMode}
 				isLoading={isochroneLoading}
 				onShowIsochrones={handleShowIsochrones}
 			/>
@@ -175,12 +212,22 @@
 		<!-- Legend -->
 		{#if isochronesShown}
 			<div class="card legend-card">
-				<div class="lbl" style="margin-bottom: 8px;">Gangavstand</div>
-				{#each WALK_BANDS as band (band.label)}
-					<div class="legend-row">
+				<div class="lbl" style="margin-bottom: 8px;">
+					{isochroneMode === 'transit' ? 'Kollektivrekkevidden' : 'Gangavstand'}
+				</div>
+				{#each isochroneMode === 'transit' ? TRANSIT_BANDS : WALK_BANDS as band (band.label)}
+					<button
+						type="button"
+						class="legend-row"
+						class:muted={!isBandVisible(band.minutes)}
+						aria-pressed={isBandVisible(band.minutes)}
+						onclick={() => toggleBand(band.minutes)}
+					>
 						<div class="legend-dot" style:background={band.color}></div>
-						{band.label}
-					</div>
+						<span class="legend-label">
+							{band.label}
+						</span>
+					</button>
 				{/each}
 			</div>
 		{/if}
@@ -286,15 +333,28 @@
 		margin-top: 8px;
 	}
 	.legend-row {
+		width: 100%;
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		border: 0;
+		background: transparent;
+		border-radius: 7px;
+		padding: 5px 4px;
 		font-size: 12.5px;
 		color: #1a1a18;
-		margin-bottom: 5px;
+		font-family: 'DM Sans', sans-serif;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			background 0.12s,
+			opacity 0.12s;
 	}
-	.legend-row:last-child {
-		margin-bottom: 0;
+	.legend-row:hover {
+		background: #f5f4ee;
+	}
+	.legend-row.muted {
+		opacity: 0.36;
 	}
 	.legend-dot {
 		width: 11px;
@@ -302,6 +362,9 @@
 		border-radius: 3px;
 		flex-shrink: 0;
 		opacity: 0.9;
+	}
+	.legend-label {
+		line-height: 1.2;
 	}
 
 	/* Override AddressLookup component for light card context */
