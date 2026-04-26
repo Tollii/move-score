@@ -17,13 +17,18 @@
 	style:height="{size}px"
 	style="position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;"
 >
-	<svg width={size} height={size} style="transform: rotate(-90deg); position: absolute;" aria-hidden="true">
-		<circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EDE9DC" stroke-width={sw} />
+	<svg
+		width={size}
+		height={size}
+		style="transform: rotate(-90deg); position: absolute;"
+		aria-hidden="true"
+	>
+		<circle cx={size / 2} cy={size / 2} {r} fill="none" stroke="#EDE9DC" stroke-width={sw} />
 		{#if score !== null}
 			<circle
 				cx={size / 2}
 				cy={size / 2}
-				r={r}
+				{r}
 				fill="none"
 				stroke={color}
 				stroke-width={sw}
@@ -32,7 +37,9 @@
 			/>
 		{/if}
 	</svg>
-	<span style="font-size: {fontSize}px; font-weight: 700; color: #1A1A18; position: relative; z-index: 1; font-family: 'DM Sans', sans-serif;">
+	<span
+		style="font-size: {fontSize}px; font-weight: 700; color: #1A1A18; position: relative; z-index: 1; font-family: 'DM Sans', sans-serif;"
+	>
 		{score !== null ? score : '—'}
 	</span>
 </div>

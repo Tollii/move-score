@@ -4,6 +4,11 @@
 	import KollektivtSection from './KollektivtSection.svelte';
 	import NabolagSection from './NabolagSection.svelte';
 	import ScoreSection from './ScoreSection.svelte';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { Button } from '$lib/components/ui/button';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import PersonSimpleWalk from 'phosphor-svelte/lib/PersonSimpleWalk';
+	import Bus from 'phosphor-svelte/lib/Bus';
 	import type { PropertyData } from './EiendomSection.svelte';
 	import type { TransitStop } from './KollektivtSection.svelte';
 	import type { Amenity } from './NabolagSection.svelte';
@@ -43,21 +48,18 @@
 		{ id: 'score', label: 'Score' }
 	] as const;
 
-	type TabId = (typeof TABS)[number]['id'];
-
-	let activeTab = $state<TabId>('eiendom');
+	let activeTab = $state('eiendom');
 	let scrollEl = $state<HTMLDivElement | undefined>();
 
 	$effect(() => {
-		// Reset to first tab when address changes
 		void address;
 		activeTab = 'eiendom';
 	});
 
-	function switchTab(id: TabId) {
-		activeTab = id;
+	$effect(() => {
+		void activeTab;
 		if (scrollEl) scrollEl.scrollTop = 0;
-	}
+	});
 </script>
 
 <div class="card" style="margin-top: 8px; overflow: hidden;">
@@ -78,63 +80,72 @@
 
 	<!-- CTA -->
 	<div class="walk-section" class:no-border={!isochronesShown}>
-		<div class="mode-btns">
-			<button
-				class="mode-btn"
-				class:active={isochronesShown && activeMode === 'walk'}
-				onclick={() => onShowIsochrones('walk')}
+		<div class="flex gap-1.5">
+			<Button
+				variant="secondary"
+				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'walk'
+					? 'bg-primary text-primary-foreground hover:bg-primary/90'
+					: ''}"
 				disabled={isLoading}
+				onclick={() => onShowIsochrones('walk')}
 			>
 				{#if isLoading && activeMode === 'walk'}
-					<span class="spinner"></span>
+					<Spinner class="size-3.5" />
 				{:else}
-					<span class="mode-icon">🚶</span>
+					<PersonSimpleWalk size={16} weight="bold" />
 				{/if}
 				Gangavstand
-			</button>
-			<button
-				class="mode-btn"
-				class:active={isochronesShown && activeMode === 'transit'}
-				onclick={() => onShowIsochrones('transit')}
+			</Button>
+			<Button
+				variant="secondary"
+				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'transit'
+					? 'bg-primary text-primary-foreground hover:bg-primary/90'
+					: ''}"
 				disabled={isLoading}
+				onclick={() => onShowIsochrones('transit')}
 			>
 				{#if isLoading && activeMode === 'transit'}
-					<span class="spinner"></span>
+					<Spinner class="size-3.5" />
 				{:else}
-					<span class="mode-icon">🚌</span>
+					<Bus size={16} weight="bold" />
 				{/if}
 				Kollektivt
-			</button>
+			</Button>
 		</div>
 	</div>
 
 	<!-- Dashboard tabs — only shown after isochrones are rendered -->
 	{#if isochronesShown}
-		<div class="tabs-header">
-			<div class="tabs">
-				{#each TABS as tab}
-					<button
-						class="tab-btn"
-						class:active={activeTab === tab.id}
-						onclick={() => switchTab(tab.id)}
-					>
-						{tab.label}
-					</button>
-				{/each}
+		<Tabs.Root bind:value={activeTab} class="flex flex-col">
+			<div class="px-3 pt-2.5">
+				<Tabs.List class="w-full">
+					{#each TABS as tab (tab.id)}
+						<Tabs.Trigger value={tab.id} class="flex-1 text-[11px]">
+							{tab.label}
+						</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
 			</div>
-		</div>
 
-		<div bind:this={scrollEl} class="panel-scroll">
-			{#if activeTab === 'eiendom'}
-				<EiendomSection {property} />
-			{:else if activeTab === 'kollektiv'}
-				<KollektivtSection {transit} />
-			{:else if activeTab === 'nabolag'}
-				<NabolagSection {amenities} />
-			{:else if activeTab === 'score'}
-				<ScoreSection {scores} overall={overallScore} />
-			{/if}
-		</div>
+			<div
+				bind:this={scrollEl}
+				class="max-h-[340px] overflow-y-auto px-4 pt-3 pb-4"
+				style="scrollbar-width: thin; scrollbar-color: #e5e4de transparent;"
+			>
+				<Tabs.Content value="eiendom">
+					<EiendomSection {property} />
+				</Tabs.Content>
+				<Tabs.Content value="kollektiv">
+					<KollektivtSection {transit} />
+				</Tabs.Content>
+				<Tabs.Content value="nabolag">
+					<NabolagSection {amenities} />
+				</Tabs.Content>
+				<Tabs.Content value="score">
+					<ScoreSection {scores} overall={overallScore} />
+				</Tabs.Content>
+			</div>
+		</Tabs.Root>
 	{/if}
 </div>
 
@@ -178,110 +189,5 @@
 	}
 	.walk-section.no-border {
 		border-bottom: none;
-	}
-	.mode-btns {
-		display: flex;
-		gap: 6px;
-	}
-	.mode-btn {
-		flex: 1;
-		background: #f0efe9;
-		color: #6b6b66;
-		border: none;
-		border-radius: 9px;
-		font-family: 'DM Sans', sans-serif;
-		font-size: 13px;
-		font-weight: 600;
-		padding: 10px 8px;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 5px;
-		transition:
-			background 0.12s,
-			color 0.12s,
-			transform 0.1s;
-		letter-spacing: -0.01em;
-	}
-	.mode-btn:hover:not(:disabled):not(.active) {
-		background: #e5e4de;
-		color: #1a1a18;
-	}
-	.mode-btn.active {
-		background: #f5b800;
-		color: #1a1a18;
-	}
-	.mode-btn:active:not(:disabled) {
-		transform: scale(0.98);
-	}
-	.mode-btn:disabled {
-		opacity: 0.7;
-		cursor: not-allowed;
-	}
-	.mode-icon {
-		font-size: 14px;
-		line-height: 1;
-	}
-	.spinner {
-		width: 13px;
-		height: 13px;
-		border: 2px solid rgba(26, 26, 24, 0.25);
-		border-top-color: #1a1a18;
-		border-radius: 50%;
-		animation: spin 0.7s linear infinite;
-		flex-shrink: 0;
-	}
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-	.tabs-header {
-		padding: 10px 12px 0;
-	}
-	.tabs {
-		display: flex;
-		gap: 2px;
-		background: #f0efe9;
-		border-radius: 9px;
-		padding: 3px;
-	}
-	.tab-btn {
-		flex: 1;
-		padding: 6px 4px;
-		border: none;
-		border-radius: 7px;
-		background: transparent;
-		font-family: 'DM Sans', sans-serif;
-		font-size: 11px;
-		font-weight: 500;
-		color: #a8a79e;
-		cursor: pointer;
-		transition: all 0.15s;
-		white-space: nowrap;
-	}
-	.tab-btn.active {
-		background: #fffefc;
-		color: #1a1a18;
-		font-weight: 600;
-		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-	}
-	.tab-btn:hover:not(.active) {
-		color: #1a1a18;
-	}
-	.panel-scroll {
-		max-height: 340px;
-		padding: 12px 16px 16px;
-		overflow-y: auto;
-		scrollbar-width: thin;
-		scrollbar-color: #e5e4de transparent;
-	}
-	.panel-scroll::-webkit-scrollbar {
-		width: 4px;
-	}
-	.panel-scroll::-webkit-scrollbar-thumb {
-		background: #e5e4de;
-		border-radius: 4px;
 	}
 </style>

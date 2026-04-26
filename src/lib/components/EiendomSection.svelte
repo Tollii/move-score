@@ -1,4 +1,9 @@
 <script lang="ts">
+	import Warning from 'phosphor-svelte/lib/Warning';
+	import ArrowSquareOut from 'phosphor-svelte/lib/ArrowSquareOut';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Alert from '$lib/components/ui/alert';
+
 	export type PropertyData = {
 		type: string;
 		size: number;
@@ -26,7 +31,7 @@
 {#if property}
 	<!-- Key metrics -->
 	<div class="metrics-grid">
-		{#each [{ val: `${property.size} m²`, label: 'Størrelse' }, { val: `${property.rooms} rom`, label: 'Antall rom' }, { val: property.floor, label: 'Etasje' }] as m}
+		{#each [{ val: `${property.size} m²`, label: 'Størrelse' }, { val: `${property.rooms} rom`, label: 'Antall rom' }, { val: property.floor, label: 'Etasje' }] as m (m.label)}
 			<div class="metric-cell">
 				<div class="metric-val">{m.val}</div>
 				<div class="metric-label">{m.label}</div>
@@ -49,14 +54,16 @@
 		{#if property.fellesgjeld > 0}
 			<div class="price-debt">
 				<span>+ Fellesgjeld {fmt(property.fellesgjeld)} kr</span>
-				<span style="font-weight: 600;">Totalt {fmt(property.askingPrice + property.fellesgjeld)} kr</span>
+				<span style="font-weight: 600;"
+					>Totalt {fmt(property.askingPrice + property.fellesgjeld)} kr</span
+				>
 			</div>
 		{/if}
 	</div>
 
 	<!-- Details -->
 	<div>
-		{#each [{ k: 'Boligtype', v: property.type }, { k: 'Byggeår', v: `${property.built}${property.renovated ? ` (renovert ${property.renovated})` : ''}` }, { k: 'Eierform', v: property.eierform }, { k: 'Energimerke', v: property.energimerke }, { k: 'Felleskostnader', v: `${fmt(property.felleskostnader)} kr/mnd` }] as row}
+		{#each [{ k: 'Boligtype', v: property.type }, { k: 'Byggeår', v: `${property.built}${property.renovated ? ` (renovert ${property.renovated})` : ''}` }, { k: 'Eierform', v: property.eierform }, { k: 'Energimerke', v: property.energimerke }, { k: 'Felleskostnader', v: `${fmt(property.felleskostnader)} kr/mnd` }] as row (row.k)}
 			<div class="stat-row">
 				<span class="stat-key">{row.k}</span>
 				<span class="stat-val">{row.v}</span>
@@ -70,26 +77,20 @@
 		rel="noopener noreferrer"
 		class="finn-link"
 	>
-		<svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-			<path d="M2 6.5C2 4 4 2 6.5 2S11 4 11 6.5 9 11 6.5 11 2 9 2 6.5z" stroke="#A8A79E" stroke-width="1.3" />
-			<path d="M9.5 9.5L12 12" stroke="#A8A79E" stroke-width="1.3" stroke-linecap="round" />
-		</svg>
+		<ArrowSquareOut size={13} />
 		Se på Finn.no · {property.finnKode}
 	</a>
 {:else}
 	<!-- N/A stub — waiting for property data -->
-	<div class="na-notice">
-		<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-			<circle cx="7" cy="7" r="6" stroke="#d4860a" stroke-width="1.4" />
-			<path d="M7 4v4M7 9.5v.5" stroke="#d4860a" stroke-width="1.4" stroke-linecap="round" />
-		</svg>
-		Eiendomsdata ikke tilgjengelig ennå
-	</div>
+	<Alert.Root variant="warning" class="mb-3 text-[11.5px]">
+		<Warning size={14} />
+		<Alert.Description>Eiendomsdata ikke tilgjengelig ennå</Alert.Description>
+	</Alert.Root>
 
 	<div class="metrics-grid">
-		{#each ['Størrelse', 'Antall rom', 'Etasje'] as label}
+		{#each ['Størrelse', 'Antall rom', 'Etasje'] as label (label)}
 			<div class="metric-cell">
-				<span class="na-badge">N/A</span>
+				<Badge variant="warning" class="text-[10px]">N/A</Badge>
 				<div class="metric-label">{label}</div>
 			</div>
 		{/each}
@@ -99,29 +100,26 @@
 		<div class="price-row">
 			<div>
 				<div class="price-label">Prisantydning</div>
-				<span class="na-badge">N/A</span>
+				<Badge variant="warning" class="text-[10px]">N/A</Badge>
 			</div>
 			<div style="text-align: right;">
 				<div class="price-label">Per m²</div>
-				<span class="na-badge">N/A</span>
+				<Badge variant="warning" class="text-[10px]">N/A</Badge>
 			</div>
 		</div>
 	</div>
 
 	<div>
-		{#each ['Boligtype', 'Byggeår', 'Eierform', 'Energimerke', 'Felleskostnader'] as key}
+		{#each ['Boligtype', 'Byggeår', 'Eierform', 'Energimerke', 'Felleskostnader'] as key (key)}
 			<div class="stat-row">
 				<span class="stat-key">{key}</span>
-				<span class="na-badge">N/A</span>
+				<Badge variant="warning" class="text-[10px]">N/A</Badge>
 			</div>
 		{/each}
 	</div>
 
 	<button class="finn-link" disabled style="cursor: default; opacity: 0.45;">
-		<svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
-			<path d="M2 6.5C2 4 4 2 6.5 2S11 4 11 6.5 9 11 6.5 11 2 9 2 6.5z" stroke="#A8A79E" stroke-width="1.3" />
-			<path d="M9.5 9.5L12 12" stroke="#A8A79E" stroke-width="1.3" stroke-linecap="round" />
-		</svg>
+		<ArrowSquareOut size={13} />
 		Finn.no-kobling kommer
 	</button>
 {/if}
@@ -241,31 +239,5 @@
 	}
 	.finn-link:hover {
 		background: #f0efe9;
-	}
-	.na-notice {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		font-size: 11.5px;
-		color: #d4860a;
-		font-weight: 500;
-		background: #fff8e6;
-		border: 1px solid #f5d98a;
-		border-radius: 8px;
-		padding: 8px 11px;
-		margin-bottom: 13px;
-	}
-	.na-badge {
-		display: inline-flex;
-		align-items: center;
-		background: #fff3b0;
-		border: 1.5px solid #f5b800;
-		color: #7a5c00;
-		font-size: 10px;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		padding: 2px 8px;
-		border-radius: 99px;
-		font-family: 'DM Sans', sans-serif;
 	}
 </style>

@@ -3,6 +3,30 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
+@theme {
+	--color-background: #f0efe9;
+	--color-foreground: #1a1a18;
+	--color-card: #fffefc;
+	--color-card-foreground: #1a1a18;
+	--color-popover: #fffefc;
+	--color-popover-foreground: #1a1a18;
+	--color-primary: #f5b800;
+	--color-primary-foreground: #1a1a18;
+	--color-secondary: #f5f4ee;
+	--color-secondary-foreground: #6b6b66;
+	--color-muted: #f0efe9;
+	--color-muted-foreground: #a8a79e;
+	--color-accent-foreground: #1a1a18;
+	--color-destructive: #c0392b;
+	--color-border: #e5e4de;
+	--color-input: #e5e4de;
+	--color-ring: #f5b800;
+	--radius-sm: 0.5rem;
+	--radius-md: 0.625rem;
+	--radius-lg: 0.75rem;
+	--radius-xl: 0.875rem;
+}
+
 :root {
 	--font-display: 'Fraunces', Georgia, serif;
 	--font-body: 'Space Grotesk', 'Avenir Next', sans-serif;
@@ -19,9 +43,6 @@
 	--shadow-glass: 0 32px 80px rgb(0 0 0 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.08);
 	--shadow-small: 0 8px 32px rgb(7 18 15 / 0.22);
 	--shadow-btn: 0 8px 28px rgb(255 176 0 / 0.32), 0 2px 8px rgb(255 176 0 / 0.2);
-	--radius-xl: 1.75rem;
-	--radius-lg: 1.125rem;
-	--radius-md: 0.75rem;
 }
 
 html {

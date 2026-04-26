@@ -1,6 +1,16 @@
 <script lang="ts">
+	import ShoppingCart from 'phosphor-svelte/lib/ShoppingCart';
+	import ForkKnife from 'phosphor-svelte/lib/ForkKnife';
+	import Barbell from 'phosphor-svelte/lib/Barbell';
+	import TreeIcon from 'phosphor-svelte/lib/Tree';
+	import GraduationCap from 'phosphor-svelte/lib/GraduationCap';
+	import FirstAidKit from 'phosphor-svelte/lib/FirstAidKit';
+	import Warning from 'phosphor-svelte/lib/Warning';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Alert from '$lib/components/ui/alert';
+
 	export type Amenity = {
-		icon: string;
+		iconKey: string;
 		name: string;
 		type: string;
 		distance: number;
@@ -32,19 +42,35 @@
 	);
 
 	const STUB_ITEMS = [
-		{ icon: '🛒', label: 'Dagligvare' },
-		{ icon: '🍽️', label: 'Kafé / Restaurant' },
-		{ icon: '🏃', label: 'Treningssenter' },
-		{ icon: '🌳', label: 'Park' },
-		{ icon: '🏫', label: 'Barneskole' },
-		{ icon: '🏥', label: 'Helse' }
+		{ iconKey: 'grocery', label: 'Dagligvare' },
+		{ iconKey: 'food', label: 'Kafé / Restaurant' },
+		{ iconKey: 'gym', label: 'Treningssenter' },
+		{ iconKey: 'park', label: 'Park' },
+		{ iconKey: 'school', label: 'Barneskole' },
+		{ iconKey: 'health', label: 'Helse' }
 	];
 </script>
 
 {#if amenities && amenities.length > 0}
-	{#each sorted as amenity}
+	{#each sorted as amenity (`${amenity.type}:${amenity.name}`)}
 		<div class="amenity-row">
-			<div class="amenity-icon">{amenity.icon}</div>
+			<div class="amenity-icon">
+				{#if amenity.iconKey === 'grocery'}
+					<ShoppingCart size={18} />
+				{:else if amenity.iconKey === 'food'}
+					<ForkKnife size={18} />
+				{:else if amenity.iconKey === 'gym'}
+					<Barbell size={18} />
+				{:else if amenity.iconKey === 'park'}
+					<TreeIcon size={18} />
+				{:else if amenity.iconKey === 'school'}
+					<GraduationCap size={18} />
+				{:else if amenity.iconKey === 'health'}
+					<FirstAidKit size={18} />
+				{:else}
+					<ShoppingCart size={18} />
+				{/if}
+			</div>
 			<div class="amenity-info">
 				<div class="amenity-name">{amenity.name}</div>
 				<div class="amenity-type">{amenity.type}</div>
@@ -61,23 +87,34 @@
 	{/each}
 {:else}
 	<!-- N/A stub — waiting for amenity data -->
-	<div class="na-notice">
-		<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-			<circle cx="7" cy="7" r="6" stroke="#d4860a" stroke-width="1.4" />
-			<path d="M7 4v4M7 9.5v.5" stroke="#d4860a" stroke-width="1.4" stroke-linecap="round" />
-		</svg>
-		Nabolagsdata ikke tilgjengelig ennå
-	</div>
+	<Alert.Root variant="warning" class="mb-1 text-[11.5px]">
+		<Warning size={14} />
+		<Alert.Description>Nabolagsdata ikke tilgjengelig ennå</Alert.Description>
+	</Alert.Root>
 
-	{#each STUB_ITEMS as item}
+	{#each STUB_ITEMS as item (item.iconKey)}
 		<div class="amenity-row">
-			<div class="amenity-icon">{item.icon}</div>
+			<div class="amenity-icon">
+				{#if item.iconKey === 'grocery'}
+					<ShoppingCart size={18} />
+				{:else if item.iconKey === 'food'}
+					<ForkKnife size={18} />
+				{:else if item.iconKey === 'gym'}
+					<Barbell size={18} />
+				{:else if item.iconKey === 'park'}
+					<TreeIcon size={18} />
+				{:else if item.iconKey === 'school'}
+					<GraduationCap size={18} />
+				{:else if item.iconKey === 'health'}
+					<FirstAidKit size={18} />
+				{/if}
+			</div>
 			<div class="amenity-info">
 				<div class="amenity-name" style="color: #a8a79e;">{item.label}</div>
 				<div class="amenity-type">Kategori</div>
 			</div>
 			<div class="amenity-dist">
-				<span class="na-badge">N/A</span>
+				<Badge variant="warning" class="text-[10px]">N/A</Badge>
 			</div>
 		</div>
 	{/each}
@@ -135,31 +172,5 @@
 		font-size: 10px;
 		color: #a8a79e;
 		margin-top: 1px;
-	}
-	.na-notice {
-		display: flex;
-		align-items: center;
-		gap: 7px;
-		font-size: 11.5px;
-		color: #d4860a;
-		font-weight: 500;
-		background: #fff8e6;
-		border: 1px solid #f5d98a;
-		border-radius: 8px;
-		padding: 8px 11px;
-		margin-bottom: 4px;
-	}
-	.na-badge {
-		display: inline-flex;
-		align-items: center;
-		background: #fff3b0;
-		border: 1.5px solid #f5b800;
-		color: #7a5c00;
-		font-size: 10px;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		padding: 2px 8px;
-		border-radius: 99px;
-		font-family: 'DM Sans', sans-serif;
 	}
 </style>

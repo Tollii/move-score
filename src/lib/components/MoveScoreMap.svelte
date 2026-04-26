@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable no-useless-assignment */
 	import { onMount, untrack } from 'svelte';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type maplibregl from 'maplibre-gl';
@@ -37,8 +38,8 @@
 		triggerKey = 0,
 		mode = 'walk',
 		visibleBandMinutes,
-		isLoading = $bindable(false),
-		error = $bindable<string | undefined>(undefined)
+		isLoading = $bindable<boolean>(),
+		error = $bindable<string | undefined>()
 	}: Props = $props();
 
 	let mapEl: HTMLDivElement;
@@ -146,8 +147,8 @@
 	});
 
 	$effect(() => {
-		visibleBandMinutes;
-		mode;
+		void visibleBandMinutes;
+		void mode;
 		if (renderedIsochrone && loadedIsochroneKey === `${selectedOriginKey}:${mode}`) {
 			untrack(() => renderIsochrone({ moveCamera: false }));
 		}
