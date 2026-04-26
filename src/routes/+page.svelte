@@ -52,6 +52,9 @@
 
 			const [address] = response.adresser;
 			if (!address) {
+				selectedAddress = undefined;
+				isochroneError = undefined;
+				isochronesShown = false;
 				return;
 			}
 
