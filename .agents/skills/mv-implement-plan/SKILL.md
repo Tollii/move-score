@@ -1,0 +1,41 @@
+---
+name: mv-implement-plan
+description: Move Score implementation execution workflow. Use when asked to execute an implementation plan and prepare the work for PR creation.
+---
+
+# Move Score Implement Plan
+
+Execute a written implementation plan with minimal drift.
+
+## Project Adapter
+
+- Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
+- Use `pnpm` for package scripts and dependency changes.
+- Validate with targeted checks first, then `pnpm check`, `pnpm lint`, and `pnpm build` for publishable work.
+- Run `npx convex codegen` after Convex schema/API changes when generated files need updating.
+- Do not edit `src/convex/_generated/` by hand.
+- Keep frontend changes aligned with existing SvelteKit/Svelte 5 patterns in `src/routes/` and `src/lib/components/`.
+
+## Workflow
+
+1. Read the plan and extract steps, touched paths, assumptions, validation, and caveats.
+2. Inspect the branch and worktree. Preserve unrelated user changes.
+3. If the plan is materially incomplete, stop before coding and report the missing information.
+4. Execute steps in order, reading relevant files before editing.
+5. Keep changes scoped to the plan unless validation exposes a required fix.
+6. Regenerate derived artifacts only with project commands.
+7. Run final validation from the plan.
+8. Commit with a concise conventional commit when requested or when preparing a PR.
+9. Report commits, validation, uncommitted files, and caveats.
+
+## Handoff
+
+```markdown
+Status: implemented | partial | blocked
+Next suggested action: publish | revise-plan | research | human-input | stop
+Blockers: <none or concise list>
+Changes made: <files/commits summary>
+Validation: <commands run and results>
+Uncommitted work: <none or list>
+Ready to publish: yes | no
+```
