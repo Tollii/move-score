@@ -85,6 +85,7 @@
 
 			return () => {
 				clearTimeout(timer);
+				finnLookupLoading = false;
 				controller.abort();
 			};
 		}
