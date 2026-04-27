@@ -3,6 +3,11 @@
 	import { AddressLookup, MoveScoreMap, searchGeonorgeAddresses, type GeonorgeAddress } from '$lib';
 	import AddressCard from '$lib/components/AddressCard.svelte';
 	import type { FinnListingInfo } from '$lib/finn/address';
+	import {
+		enabledIsochroneModes,
+		ISOCHRONE_MODES_BY_ID,
+		type IsochroneModeId
+	} from '$lib/isochrones/modes';
 
 	const ADDRESS_QUERY_PARAM = 'address';
 
@@ -12,9 +17,8 @@
 	let isochroneError = $state<string | undefined>();
 	let triggerKey = $state(0);
 	let isochronesShown = $state(false);
-	let isochroneMode = $state<'walk' | 'transit'>('walk');
-	let visibleWalkBands = $state([5, 10, 15, 20]);
-	let visibleTransitBands = $state([10, 15, 20, 30, 45, 60]);
+	let isochroneMode = $state<IsochroneModeId>('walk');
+	let visibleBandsByMode = $state(createVisibleBandsByMode());
 
 	onMount(() => {
 		void selectAddressFromUrl();
@@ -102,47 +106,32 @@
 		return [addressText, place, municipality].filter(Boolean).join(', ');
 	}
 
-	function handleShowIsochrones(mode: 'walk' | 'transit') {
+	function handleShowIsochrones(mode: IsochroneModeId) {
 		isochroneMode = mode;
 		isochronesShown = true;
 		triggerKey++;
 	}
 
-	const WALK_BANDS = [
-		{ minutes: 5, color: '#16a34a', label: '0–5 min' },
-		{ minutes: 10, color: '#ca8a04', label: '5–10 min' },
-		{ minutes: 15, color: '#ea580c', label: '10–15 min' },
-		{ minutes: 20, color: '#dc2626', label: '15–20 min' }
-	];
-
-	const TRANSIT_BANDS = [
-		{ minutes: 10, color: '#059669', label: '0–10 min' },
-		{ minutes: 15, color: '#65a30d', label: '10–15 min' },
-		{ minutes: 20, color: '#d97706', label: '15–20 min' },
-		{ minutes: 30, color: '#ea580c', label: '20–30 min' },
-		{ minutes: 45, color: '#dc2626', label: '30–45 min' },
-		{ minutes: 60, color: '#9f1239', label: '45–60 min' }
-	];
-
-	const visibleBandMinutes = $derived(
-		isochroneMode === 'transit' ? visibleTransitBands : visibleWalkBands
-	);
+	const activeModeConfig = $derived(ISOCHRONE_MODES_BY_ID[isochroneMode]);
+	const visibleBandMinutes = $derived(visibleBandsByMode[isochroneMode]);
 
 	function toggleBand(minutes: number) {
-		const visible = isochroneMode === 'transit' ? visibleTransitBands : visibleWalkBands;
+		const visible = visibleBandsByMode[isochroneMode];
 		const next = visible.includes(minutes)
 			? visible.filter((band) => band !== minutes)
 			: [...visible, minutes].sort((a, b) => a - b);
 
-		if (isochroneMode === 'transit') {
-			visibleTransitBands = next;
-		} else {
-			visibleWalkBands = next;
-		}
+		visibleBandsByMode = { ...visibleBandsByMode, [isochroneMode]: next };
 	}
 
 	function isBandVisible(minutes: number) {
 		return visibleBandMinutes.includes(minutes);
+	}
+
+	function createVisibleBandsByMode(): Record<IsochroneModeId, number[]> {
+		return Object.fromEntries(
+			enabledIsochroneModes.map((mode) => [mode.id, mode.bands.map((band) => band.minutes)])
+		) as Record<IsochroneModeId, number[]>;
 	}
 </script>
 
@@ -150,7 +139,7 @@
 	<title>Move Score — Finn nabolaget som passer deg</title>
 	<meta
 		name="description"
-		content="Utforsk norske adresser på et interaktivt kart og se gangavstand rundt valgt punkt."
+		content="Utforsk norske adresser på et interaktivt kart og sammenlign gange, sykkel, bil og kollektiv rekkevidde."
 	/>
 </svelte:head>
 
@@ -190,7 +179,7 @@
 			{#if !selectedAddress}
 				<div class="tagline">
 					<h1>Finn nabolaget som passer livet ditt.</h1>
-					<p>Søk etter en adresse og se gangavstand, kollektivtilbud og nabolagsinfo.</p>
+					<p>Søk etter en adresse og sammenlign gange, sykkel, bil, kollektivt og nabolagsinfo.</p>
 				</div>
 			{/if}
 
@@ -227,9 +216,9 @@
 		{#if isochronesShown}
 			<div class="card legend-card">
 				<div class="lbl" style="margin-bottom: 8px;">
-					{isochroneMode === 'transit' ? 'Kollektivrekkevidden' : 'Gangavstand'}
+					{activeModeConfig.legendTitle}
 				</div>
-				{#each isochroneMode === 'transit' ? TRANSIT_BANDS : WALK_BANDS as band (band.label)}
+				{#each activeModeConfig.bands as band (band.label)}
 					<button
 						type="button"
 						class="legend-row"

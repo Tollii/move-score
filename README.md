@@ -1,50 +1,34 @@
-# sv
-
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-pnpm dlx sv@0.15.1 create --template minimal --types ts --add prettier eslint tailwindcss="plugins:typography,forms" sveltekit-adapter="adapter:vercel" --install pnpm move-score
-```
+# Move Score
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Install dependencies and start a development server:
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+pnpm install
+pnpm dev
 ```
 
-### Mapbox
+### Isochrone providers
 
-Walking isochrones are fetched from Mapbox. Configure this Convex environment variable before requesting gangavstand:
+Isochrones are fetched by Convex actions so provider secrets stay server-side. Configure this Convex environment variable before requesting reachability polygons:
 
 ```sh
-MAPBOX_ACCESS_TOKEN=...
+TARGOMO_API_KEY=...
 ```
+
+`TARGOMO_API_KEY` is required in the active Convex environment, including any preview or production Convex deployment that serves isochrone requests. The current isochrone implementation for walking, cycling, driving, walk + transit, and cycling + transit uses Targomo only; no `MAPBOX_ACCESS_TOKEN` is required for this path.
+
+Supported isochrone modes are walking, cycling, driving, public transport with walking access/egress, and cycling + public transport through Targomo. The current transit UI mode prefers Targomo `walktransit` per the issue plan, but credentialed smoke testing for Norway-area `walktransit`/`biketransit` coverage is still pending. If live validation shows `polygon_post` rejects `walktransit`, switch that mode to Targomo `transit` and document the verified result. Road modes depend on OpenStreetMap coverage; transit modes depend on Targomo regional transit/GTFS coverage and should be smoke-tested before relying on preview or production results.
 
 ## Building
 
 To create a production version of your app:
 
 ```sh
-npm run build
+pnpm build
 ```
 
-You can preview the production build with `npm run preview`.
+You can preview the production build with `pnpm preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
