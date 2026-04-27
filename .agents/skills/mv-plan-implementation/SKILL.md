@@ -31,7 +31,8 @@ Create an implementation plan that another agent or engineer can execute without
 5. Handle edge cases and weird input explicitly.
 6. Break the work into ordered, atomic steps with verification for each step.
 7. Include final validation and rollback or migration notes when relevant.
-8. If the plan still has holes, mark them as blockers or risks in the handoff instead of invoking another workflow.
+8. If the plan is for a GitHub issue, post the plan as an issue comment before handing off.
+9. If the plan still has holes, mark them as blockers or risks in the handoff instead of invoking another workflow.
 
 ## Plan Format
 
@@ -85,6 +86,7 @@ Next suggested action: critique | research | human-input | stop
 Blockers: <none or concise list>
 Research needed: <none or specific questions/areas>
 Artifacts: <plan location or inline title>
+Issue comments: <GitHub issue comment URL/id, or "not applicable">
 Risk notes: <important caveats>
 ```
 
@@ -94,7 +96,7 @@ Do not invoke other workflow skills from this skill. Report what is needed next 
 
 - Fetch requirements from chat, GitHub Issues, linked PRs, or local notes in this repo.
 - There is one primary repo: `Tollii/move-score`.
-- Keep plans in chat by default; post to a GitHub issue only when the user asks or the issue is the source of truth.
+- When a GitHub issue is the source of truth, always post the implementation plan as an issue comment before implementation starts.
 - Plans must name touched paths under `src/routes/`, `src/lib/`, `src/convex/`, config files, or `.agents/skills/` as appropriate.
 - Mention when the existing Claude/Codex project hooks and shared runner in `scripts/agent-hooks/` can cover scoped post-edit linting/formatting instead of adding custom plan steps.
 - Include `pnpm check`, `pnpm lint`, `pnpm build`, and `npx convex codegen` when relevant.

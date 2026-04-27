@@ -28,7 +28,8 @@ Turn a vague issue, user story, bug report, or product request into an implement
    - Multiple requirements mixed into one story.
 5. If ambiguity blocks a responsible plan, stop and return `blocked: human-input-needed` with concise questions.
 6. If ambiguities are minor, choose conservative common-sense assumptions and list them explicitly.
-7. Produce a triage brief and post it to the GitHub issue only when persistence would help; otherwise keep the brief in the chat handoff.
+7. Produce a triage brief.
+8. If the source of truth is a GitHub issue, post the triage brief as an issue comment before handing off. If there is no GitHub issue, include the brief inline in the handoff.
 
 ## Triage Brief
 
@@ -82,6 +83,7 @@ Status: ready | blocked
 Next suggested action: plan | human-input | stop
 Blockers: <none or concise list>
 Artifacts: <triage brief location or inline title>
+Issue comments: <GitHub issue comment URL/id, or "not applicable">
 Assumptions: <key assumptions>
 ```
 
@@ -91,6 +93,6 @@ Do not invoke other workflow skills from this skill. Report what is needed next 
 
 - Fetch and update issues in `Tollii/move-score` with the GitHub app or `gh issue`.
 - Keep GitHub board/status updates lightweight because this is a solo-maintained app and the board is not heavily used.
-- Post triage briefs as issue comments only for substantial work or when the user asks for a durable record.
+- When triage is for a GitHub issue, always post the triage brief as an issue comment so implementation agents and humans can read the durable context later.
 - Use labels and milestones only if they already exist and clearly apply; do not invent process.
 - Use domain terms from the app and README: address lookup, `Eiendom`, `Nabolag`, `Kollektivt`, `gangavstand`, Mapbox isochrones, GeoNorge, Vercel, and Convex.

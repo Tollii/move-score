@@ -17,12 +17,15 @@ The top-level agent is the master orchestrator. It owns:
 - Final judgment.
 - Publishing or handoff.
 - Deciding when another review/address loop is required.
+- Ensuring pre-implementation artifacts are posted to the source GitHub issue.
 
 Sub-agents own all bounded stage work, such as intake/triage, backend research, frontend research, data-model research, plan creation, plan critique, implementation of a specific module, validation, publication, independent review, security review, and addressing review comments.
 
 Sub-agents do not decide the overall workflow. They return artifacts, status, blockers, and suggested next actions. The orchestrator decides whether to continue, revise, spawn another pass, publish, review, or escalate.
 
 Each stage should use newly spawned sub-agents with fresh context. Do not reuse the same agent for review after it implemented or addressed the change. Each review/address-review loop must use new sub-agents so the reviewer and fixer approach the work without bias from earlier passes.
+
+When the work is tied to a GitHub issue, all pre-implementation artifacts must be posted as comments on that issue before implementation begins. This includes intake summaries, triage briefs, research briefs, debug briefs that inform the plan, implementation plans, plan critiques, revised plans, and human-facing assumptions. The orchestrator should require artifact links or issue-comment references in sub-agent handoffs so later implementation agents and humans can read the durable context from the issue.
 
 ## Project Adapter
 
@@ -37,6 +40,7 @@ Each stage should use newly spawned sub-agents with fresh context. Do not reuse 
 
 1. Intake
    - Spawn an intake sub-agent to identify the source requirement, target repos, constraints, desired output, and obvious blockers.
+   - If the source is a GitHub issue, require the intake artifact to be posted to that issue before moving on.
    - If the request is too vague to proceed, spawn a `mv-triage` sub-agent.
    - If the request is primarily a bug, regression, flaky behavior, or unexplained failure, spawn a `mv-debug` sub-agent before planning a fix.
    - If the request is primarily a failing GitHub, Vercel, or Convex check, spawn a sub-agent to inspect the failing check/logs directly before planning a code fix.
@@ -45,19 +49,23 @@ Each stage should use newly spawned sub-agents with fresh context. Do not reuse 
    - Spawn one or more `mv-codebase-research` sub-agents.
    - For cross-system work, delegate separate research agents by slice. Example slices: backend, frontend, data model, infrastructure, integrations.
    - Prefer parallel research when slices are independent. The orchestrator synthesizes the returned briefs and decides whether gaps require another targeted research sub-agent.
+   - Require each research brief, or a synthesized research summary, to be posted to the source GitHub issue before planning starts.
 
 3. Triage and assumptions
    - Spawn a triage/assumptions sub-agent when intake or research identifies ambiguity, hidden requirements, or edge cases.
    - Resolve minor ambiguity with explicit assumptions based on sub-agent evidence.
+   - Require triage briefs and explicit assumptions to be posted to the source GitHub issue before planning starts.
    - Use `mv-ping-human` only for blocking ambiguity.
 
 4. Plan
    - Spawn a `mv-plan-implementation` sub-agent.
    - Ensure the plan is specific enough for a smaller/faster model to execute.
+   - Require the implementation plan to be posted to the source GitHub issue before critique or implementation.
 
 5. Critique and iterate
    - Spawn a fresh `mv-plan-critique` sub-agent for any plan that is risky, broad, or intended for another agent to execute.
    - If critique finds blockers or major gaps, spawn a fresh planning sub-agent or ask the prior planner for a revised artifact only when bias is not a concern. Prefer a fresh planner for materially changed plans.
+   - Require critiques and revised plans to be posted to the source GitHub issue before implementation.
 
 6. Implement
    - Spawn one or more `mv-implement-plan` worker sub-agents to execute the written plan.
@@ -94,6 +102,7 @@ Status: <ready/complete/implemented/published/clean/partial/blocked/revisions-ne
 Next suggested action: <plan/critique/implement/revise-plan/research/publish/review/address-comments/human-input/stop>
 Blockers: <none or concise list>
 Artifacts: <brief, plan, commits, PR URL, review thread ids, or other useful outputs>
+Issue comments: <GitHub issue comment URLs/ids for posted pre-implementation artifacts, or "not applicable">
 Validation: <commands run and results, when applicable>
 Notes: <assumptions, caveats, residual risk, or feedback for another pass>
 ```
@@ -105,6 +114,7 @@ Treat `Next suggested action` as input, not an instruction. Compare it with the 
 - If research is partial, decide whether the gap matters. If it does, run another targeted research pass.
 - If triage is blocked, use `mv-ping-human` only for the exact missing decision.
 - If the plan needs revisions, delegate a new planning pass with the critique.
+- Do not start implementation until the source GitHub issue has durable comments for the current triage/research/plan/critique artifacts, or the handoff explicitly says no issue exists.
 - If implementation is partial or blocked, inspect the implementation feedback before deciding between more research, plan revision, human input, or a narrower implementation pass.
 - If debugging identifies a different root cause than the original requirement assumed, update the plan before implementing.
 - If a GitHub, Vercel, or Convex check failure is unrelated to the change, report that evidence instead of folding unrelated repair into the feature branch.
@@ -142,6 +152,7 @@ Do not call humans for ordinary implementation choices, naming, local style, or 
 The job is complete when:
 
 - The requirement is implemented or a clear blocker is documented.
+- Pre-implementation artifacts were posted to the source GitHub issue when one exists.
 - Validation was run or the reason it could not run is recorded.
 - The change is published if requested.
 - Fresh review sub-agents have found no material findings.

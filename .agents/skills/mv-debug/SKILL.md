@@ -40,6 +40,7 @@ Investigate a defect with evidence before changing code. The goal is to reproduc
 7. Add or update a regression test when possible. If a test is impractical, document the manual or observable validation.
 8. Run targeted validation first, then broader validation proportional to risk.
 9. Report the cause, fix, validation, and remaining uncertainty.
+10. If the debug pass is pre-implementation work for a GitHub issue, post the debug brief as an issue comment before handing off.
 
 ## Debug Brief
 
@@ -87,6 +88,7 @@ Blockers: <none or concise list>
 Root cause: <confirmed cause or best evidence>
 Changes made: <files/commits summary or none>
 Validation: <commands run and results>
+Issue comments: <GitHub issue comment URL/id, or "not applicable">
 Residual risk: <none or concise list>
 ```
 
@@ -101,3 +103,4 @@ Do not invoke other workflow skills from this skill. Report what is needed next 
 - For Mapbox walking isochrone bugs, verify that `MAPBOX_ACCESS_TOKEN` is configured in the relevant Convex environment.
 - For address lookup bugs, inspect `src/lib/geonorge/` and network behavior against GeoNorge before changing scoring or map UI.
 - Add regression coverage where the project has an existing test pattern; otherwise document manual reproduction and validation clearly.
+- When a debug brief informs implementation for a GitHub issue, persist it to the issue so later planning, implementation, and review agents can read the root-cause evidence.

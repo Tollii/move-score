@@ -10,7 +10,7 @@ Review an implementation plan before execution. Catch holes while they are cheap
 ## Project Adapter
 
 - Critique plans against SvelteKit/Svelte 5 frontend constraints, Convex server-side/data contracts, and Vercel/Convex preview behavior.
-- Keep process lightweight; persist critiques to GitHub issues only when the user asks or the issue is the source of truth.
+- Keep process lightweight; when a GitHub issue is the source of truth, always persist critiques to that issue before implementation starts.
 - Require explicit handling of `MAPBOX_ACCESS_TOKEN` and Convex environment differences when a plan touches walking isochrones or deployed backend behavior.
 - Expected validation usually includes `pnpm check`, `pnpm lint`, `pnpm build`, and `npx convex codegen` when Convex APIs change.
 
@@ -21,7 +21,8 @@ Review an implementation plan before execution. Catch holes while they are cheap
 3. Check requirement coverage, architecture, edge cases, reliability, scope control, and validation.
 4. Classify issues as blocker, major, or minor.
 5. Suggest concrete plan revisions, not just criticism.
-6. If asked to iterate, produce an updated plan.
+6. If the plan is for a GitHub issue, post the critique as an issue comment before handing off.
+7. If asked to iterate, produce an updated plan and post the revised plan to the issue before handing off.
 
 ## Output
 
@@ -48,5 +49,6 @@ Status: approved | revisions-needed | blocked
 Next suggested action: implement | revise-plan | research | human-input | stop
 Blockers: <none or concise list>
 Major gaps: <none or concise list>
+Issue comments: <GitHub issue comment URL/id, or "not applicable">
 Residual risk: <none or concise list>
 ```

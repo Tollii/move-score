@@ -29,6 +29,7 @@ Research a codebase to answer a specific engineering question. The output should
 4. For complex or cross-repo questions, split research across sub-agents by system slice, such as frontend flow, backend flow, data model, or integration boundary.
 5. Verify claims against code. Mark inference clearly when direct proof is unavailable.
 6. Produce a concise research brief.
+7. If the research supports a GitHub issue, post the research brief as an issue comment before handing off. For parallel research, each slice may post its own brief, or the orchestrator may request one synthesized research comment.
 
 ## Research Brief
 
@@ -75,6 +76,7 @@ Next suggested action: triage | plan | more-research | human-input | stop
 Blockers: <none or concise list>
 Research gaps: <none or specific unanswered questions>
 Artifacts: <research brief location or inline title>
+Issue comments: <GitHub issue comment URL/id, or "not applicable">
 Confidence: high | medium | low
 ```
 
@@ -88,3 +90,4 @@ Do not invoke other workflow skills from this skill. Report what is needed next 
 - Treat `src/convex/_generated/` as generated contract evidence, not editable source.
 - For deployed behavior, consider both Vercel frontend previews and Convex backend previews.
 - Preserve Norwegian product/domain vocabulary unless the research question is specifically about copy or localization.
+- When the research is part of shipping a GitHub issue, persist the research brief to that issue so later planning and implementation agents can read it without relying on chat context.

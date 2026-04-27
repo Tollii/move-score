@@ -10,7 +10,8 @@ Use this only when continuing autonomously would be irresponsible.
 ## Project Adapter
 
 - Ask the user in chat by default.
-- Use a GitHub issue or PR comment only when the blocker belongs to an existing GitHub thread.
+- Use a GitHub issue or PR comment when the blocker belongs to an existing GitHub thread.
+- If the blocker is part of pre-implementation work for a GitHub issue, post the escalation to that issue so the decision record is durable.
 - Escalate for product decisions, destructive Convex data changes, production deployment actions, missing service access, or secrets such as Mapbox/Vercel/Convex credentials.
 
 ## Workflow
@@ -19,7 +20,8 @@ Use this only when continuing autonomously would be irresponsible.
 2. Explain why the agent cannot infer it safely.
 3. Provide the recommended default if one exists.
 4. State the impact of likely answers.
-5. Do not continue past the blocker unless a safe reversible default exists and is explicitly recorded.
+5. Post the message to the GitHub issue or PR when that thread is the source of truth.
+6. Do not continue past the blocker unless a safe reversible default exists and is explicitly recorded.
 
 ## Message Format
 
