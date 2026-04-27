@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ScoreCircle from './ScoreCircle.svelte';
 	import EiendomSection from './EiendomSection.svelte';
+	import FinnSection from './FinnSection.svelte';
 	import KollektivtSection from './KollektivtSection.svelte';
 	import NabolagSection from './NabolagSection.svelte';
 	import ScoreSection from './ScoreSection.svelte';
@@ -14,6 +15,7 @@
 	import type { Amenity } from './NabolagSection.svelte';
 	import type { Scores } from './ScoreSection.svelte';
 	import type { GeonorgeAddress } from '$lib/geonorge/address';
+	import type { FinnListingInfo } from '$lib/finn/address';
 
 	type Props = {
 		address: GeonorgeAddress;
@@ -21,6 +23,7 @@
 		activeMode?: 'walk' | 'transit';
 		isLoading?: boolean;
 		property?: PropertyData;
+		finnListing?: FinnListingInfo;
 		transit?: TransitStop[];
 		amenities?: Amenity[];
 		scores?: Scores;
@@ -34,6 +37,7 @@
 		activeMode = 'walk',
 		isLoading = false,
 		property,
+		finnListing,
 		transit,
 		amenities,
 		scores,
@@ -41,19 +45,20 @@
 		onShowIsochrones
 	}: Props = $props();
 
-	const TABS = [
+	const tabs = $derived([
+		...(finnListing ? [{ id: 'finn', label: 'Finn.no' }] : []),
 		{ id: 'eiendom', label: 'Eiendom' },
 		{ id: 'kollektiv', label: 'Kollektivt' },
 		{ id: 'nabolag', label: 'Nabolag' },
 		{ id: 'score', label: 'Score' }
-	] as const;
+	]);
 
 	let activeTab = $state('eiendom');
 	let scrollEl = $state<HTMLDivElement | undefined>();
 
 	$effect(() => {
 		void address;
-		activeTab = 'eiendom';
+		activeTab = finnListing ? 'finn' : 'eiendom';
 	});
 
 	$effect(() => {
@@ -119,7 +124,7 @@
 		<Tabs.Root bind:value={activeTab} class="flex flex-col">
 			<div class="px-3 pt-2.5">
 				<Tabs.List class="w-full">
-					{#each TABS as tab (tab.id)}
+					{#each tabs as tab (tab.id)}
 						<Tabs.Trigger value={tab.id} class="flex-1 text-[11px]">
 							{tab.label}
 						</Tabs.Trigger>
@@ -132,6 +137,9 @@
 				class="max-h-[340px] overflow-y-auto px-4 pt-3 pb-4"
 				style="scrollbar-width: thin; scrollbar-color: #e5e4de transparent;"
 			>
+				<Tabs.Content value="finn">
+					<FinnSection listing={finnListing} />
+				</Tabs.Content>
 				<Tabs.Content value="eiendom">
 					<EiendomSection {property} />
 				</Tabs.Content>

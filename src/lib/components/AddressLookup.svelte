@@ -4,6 +4,8 @@
 		type GeonorgeAddress,
 		type GeonorgeAddressSearchMetadata
 	} from '$lib/geonorge/address';
+	import { isFinnAddressInput } from '$lib/finn/address';
+	import type { FinnListingInfo } from '$lib/finn/address';
 
 	type Props = {
 		defaultQuery?: string;
@@ -12,7 +14,10 @@
 		debounceMs?: number;
 		treffPerSide?: number;
 		kommunenummer?: string;
-		onSelect?: (address: GeonorgeAddress) => void;
+		onSelect?: (
+			address: GeonorgeAddress,
+			context?: { source: 'address' | 'finn'; listing?: FinnListingInfo }
+		) => void;
 	};
 
 	let {
@@ -31,8 +36,11 @@
 	let selectedAddress = $state<GeonorgeAddress | undefined>();
 	let selectedQuery = $state('');
 	let loading = $state(false);
+	let finnLookupLoading = $state(false);
 	let errorMessage = $state<string | undefined>();
 	let initialized = false;
+
+	const isLoading = $derived(loading || finnLookupLoading);
 
 	$effect(() => {
 		if (!initialized) {
@@ -63,6 +71,22 @@
 			errorMessage = undefined;
 			loading = false;
 			return;
+		}
+
+		if (isFinnAddressInput(trimmedQuery)) {
+			addresses = [];
+			metadata = undefined;
+			loading = false;
+
+			const controller = new AbortController();
+			const timer = setTimeout(() => {
+				void lookupFinnAddress(trimmedQuery, controller.signal);
+			}, debounceMs);
+
+			return () => {
+				clearTimeout(timer);
+				controller.abort();
+			};
 		}
 
 		const controller = new AbortController();
@@ -105,13 +129,53 @@
 		};
 	});
 
-	function selectAddress(address: GeonorgeAddress) {
+	function selectAddress(
+		address: GeonorgeAddress,
+		source: 'address' | 'finn' = 'address',
+		listing?: FinnListingInfo
+	) {
 		selectedAddress = address;
 		query = formatAddress(address);
 		selectedQuery = query;
 		addresses = [];
 		metadata = undefined;
-		onSelect?.(address);
+		onSelect?.(address, { source, listing });
+	}
+
+	async function lookupFinnAddress(input: string, signal: AbortSignal) {
+		finnLookupLoading = true;
+		errorMessage = undefined;
+
+		try {
+			const response = await fetch(`/api/finn-address?input=${encodeURIComponent(input)}`, {
+				signal,
+				headers: { accept: 'application/json' }
+			});
+			const payload = (await response.json()) as {
+				address?: GeonorgeAddress;
+				listing?: FinnListingInfo;
+				error?: string;
+			};
+
+			if (!response.ok || !payload.address) {
+				throw new Error(payload.error ?? 'Kunne ikke hente adresse fra Finn-annonsen.');
+			}
+
+			selectAddress(payload.address, 'finn', payload.listing);
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				return;
+			}
+
+			addresses = [];
+			metadata = undefined;
+			errorMessage =
+				error instanceof Error ? error.message : 'Kunne ikke hente adresse fra Finn-annonsen.';
+		} finally {
+			if (!signal.aborted) {
+				finnLookupLoading = false;
+			}
+		}
 	}
 
 	function formatAddress(address: GeonorgeAddress | undefined) {
@@ -165,7 +229,7 @@
 			autocomplete="street-address"
 			bind:value={query}
 		/>
-		{#if loading}
+		{#if isLoading}
 			<span
 				class="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-[var(--color-ink)]/15 border-t-[var(--color-ink-soft)]"
 			></span>
@@ -211,7 +275,7 @@
 				{/each}
 			</ul>
 		</div>
-	{:else if query.trim().length >= minLength && !loading && !errorMessage}
+	{:else if query.trim().length >= minLength && !isLoading && !errorMessage}
 		<p class="mt-2.5 text-xs text-[var(--color-paper-muted)]">Ingen adresser funnet.</p>
 	{/if}
 </section>

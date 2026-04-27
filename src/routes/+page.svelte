@@ -2,10 +2,12 @@
 	import { onMount } from 'svelte';
 	import { AddressLookup, MoveScoreMap, searchGeonorgeAddresses, type GeonorgeAddress } from '$lib';
 	import AddressCard from '$lib/components/AddressCard.svelte';
+	import type { FinnListingInfo } from '$lib/finn/address';
 
 	const ADDRESS_QUERY_PARAM = 'address';
 
 	let selectedAddress = $state<GeonorgeAddress | undefined>();
+	let selectedFinnListing = $state<FinnListingInfo | undefined>();
 	let isochroneLoading = $state(false);
 	let isochroneError = $state<string | undefined>();
 	let triggerKey = $state(0);
@@ -23,11 +25,19 @@
 		};
 	});
 
-	function handleAddressSelect(address: GeonorgeAddress) {
+	function handleAddressSelect(
+		address: GeonorgeAddress,
+		context?: { source: 'address' | 'finn'; listing?: FinnListingInfo }
+	) {
 		selectedAddress = address;
+		selectedFinnListing = context?.listing;
 		isochroneError = undefined;
 		isochronesShown = false;
 		updateAddressQueryParam(address);
+
+		if (context?.source === 'finn') {
+			handleShowIsochrones('walk');
+		}
 	}
 
 	function handlePopState() {
@@ -41,6 +51,7 @@
 
 		if (!queryAddress) {
 			selectedAddress = undefined;
+			selectedFinnListing = undefined;
 			isochroneError = undefined;
 			isochronesShown = false;
 			return;
@@ -56,12 +67,14 @@
 			const [address] = response.adresser;
 			if (!address) {
 				selectedAddress = undefined;
+				selectedFinnListing = undefined;
 				isochroneError = undefined;
 				isochronesShown = false;
 				return;
 			}
 
 			selectedAddress = address;
+			selectedFinnListing = undefined;
 			isochroneError = undefined;
 			isochronesShown = false;
 			updateAddressQueryParam(address, 'replace');
@@ -203,6 +216,7 @@
 			<AddressCard
 				address={selectedAddress}
 				{isochronesShown}
+				finnListing={selectedFinnListing}
 				activeMode={isochroneMode}
 				isLoading={isochroneLoading}
 				onShowIsochrones={handleShowIsochrones}
