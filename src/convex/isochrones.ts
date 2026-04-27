@@ -13,12 +13,21 @@ const SUPPORTED_TARGOMO_MODES = [
 	'car',
 	'transit',
 	'walktransit',
-	'biketransit'
+	'biketransit',
+	'multiModal'
 ] as const;
 const FEATURE_VALUE_KEYS = ['value', 'time', 'travelTime', 'cost', 'edgeWeight'] as const;
 const CONTOUR_HINT_KEYS = ['range', 'contour'] as const;
 
-type TargomoTravelMode = 'walk' | 'bike' | 'car' | 'transit' | 'walktransit' | 'biketransit';
+type TargomoTravelMode =
+	| 'walk'
+	| 'bike'
+	| 'car'
+	| 'transit'
+	| 'walktransit'
+	| 'biketransit'
+	| 'multiModal';
+type MultiModalTravelType = 'walk' | 'bike' | 'car' | 'transit';
 type ProviderErrorCode =
 	| 'TARGOMO_API_KEY_MISSING'
 	| 'TARGOMO_ISOCHRONE_FAILED'
@@ -36,20 +45,39 @@ type GeoJsonFeatureCollection = {
 	}>;
 };
 
+type TargomoPreset =
+	| {
+			kind: 'single';
+			targomoMode: Exclude<TargomoTravelMode, 'multiModal'>;
+			minutes: readonly number[];
+	  }
+	| {
+			kind: 'multiModal';
+			travelTypes: readonly MultiModalTravelType[];
+			minutes: readonly number[];
+	  };
+
 const PUBLIC_ISOCHRONE_PRESETS = {
-	walk: { targomoMode: 'walk', minutes: [5, 10, 15, 20] },
-	cycling: { targomoMode: 'bike', minutes: [5, 10, 20, 30] },
-	driving: { targomoMode: 'car', minutes: [10, 20, 30, 45] },
-	transit: { targomoMode: 'transit', minutes: [10, 15, 20, 30, 45, 60] },
-	cyclingTransit: { targomoMode: 'biketransit', minutes: [10, 20, 30, 45, 60] }
-} as const satisfies Record<string, { targomoMode: TargomoTravelMode; minutes: readonly number[] }>;
+	walk: { kind: 'single', targomoMode: 'walk', minutes: [5, 10, 15, 20] },
+	cycling: { kind: 'single', targomoMode: 'bike', minutes: [5, 10, 20, 30] },
+	driving: { kind: 'single', targomoMode: 'car', minutes: [10, 20, 30, 45] },
+	transit: { kind: 'single', targomoMode: 'transit', minutes: [10, 15, 20, 30, 45, 60] },
+	// `biketransit` produced smaller catchments than walk+transit in practice because it filters
+	// out transit routes that do not allow bicycles. Use an explicit multimodal bike->transit->bike
+	// sequence instead to model the intended "bike + public transport" reachability.
+	cyclingTransit: {
+		kind: 'multiModal',
+		travelTypes: ['bike', 'transit', 'bike'],
+		minutes: [10, 20, 30, 45, 60]
+	}
+} as const satisfies Record<string, TargomoPreset>;
 
 type PublicIsochroneMode = keyof typeof PUBLIC_ISOCHRONE_PRESETS;
 type TargomoIsochroneArgs = {
 	lat: number;
 	lon: number;
 	minutes: readonly number[];
-	mode: TargomoTravelMode;
+	preset: TargomoPreset;
 	appMode: PublicIsochroneMode;
 };
 
@@ -71,7 +99,7 @@ export const getIsochrone = action({
 			await fetchTargomoIsochrone({
 				lat: args.lat,
 				lon: args.lon,
-				mode: preset.targomoMode,
+				preset,
 				minutes: preset.minutes,
 				appMode: args.mode
 			})
@@ -79,9 +107,9 @@ export const getIsochrone = action({
 	}
 });
 
-async function fetchTargomoIsochrone({ lat, lon, minutes, mode, appMode }: TargomoIsochroneArgs) {
+async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: TargomoIsochroneArgs) {
 	validateCoordinates(lat, lon);
-	validateMode(mode);
+	validatePreset(preset);
 
 	const ranges = normalizeRanges(minutes);
 	if (ranges.length === 0) {
@@ -95,14 +123,14 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, mode, appMode }: Targo
 
 	const values = ranges.map((minute) => minute * 60);
 	const frame = nextTuesdayMorning();
-	const logContext = summarizeRequest({ appMode, mode, minutes: ranges, frame });
+	const logContext = summarizeRequest({ appMode, preset, minutes: ranges, frame });
 	const payload = {
 		sources: [
 			{
 				lat,
 				lng: lon,
 				id: 'origin',
-				tm: buildTravelModePayload(mode, frame)
+				tm: buildTravelModePayload(preset, frame)
 			}
 		],
 		polygon: { serializer: 'geojson', srid: 4326, values },
@@ -130,7 +158,8 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, mode, appMode }: Targo
 		status: res.status,
 		ok: res.ok,
 		appMode,
-		providerMode: mode
+		providerMode: describePreset(preset).providerMode,
+		travelTypes: describePreset(preset).travelTypes
 	});
 
 	if (!res.ok) {
@@ -169,8 +198,20 @@ function validateCoordinates(lat: number, lon: number) {
 	}
 }
 
-function validateMode(mode: string): asserts mode is TargomoTravelMode {
-	if (!SUPPORTED_TARGOMO_MODES.includes(mode as TargomoTravelMode)) {
+function validatePreset(preset: TargomoPreset) {
+	if (preset.kind === 'single') {
+		if (!SUPPORTED_TARGOMO_MODES.includes(preset.targomoMode)) {
+			throw stableProviderError('TARGOMO_ISOCHRONE_UNSUPPORTED_MODE');
+		}
+		return;
+	}
+
+	if (
+		preset.travelTypes.length === 0 ||
+		preset.travelTypes.some(
+			(travelType) => !['walk', 'bike', 'car', 'transit'].includes(travelType)
+		)
+	) {
 		throw stableProviderError('TARGOMO_ISOCHRONE_UNSUPPORTED_MODE');
 	}
 }
@@ -183,9 +224,20 @@ function normalizeRanges(minutes: readonly number[]) {
 }
 
 function buildTravelModePayload(
-	mode: TargomoTravelMode,
+	preset: TargomoPreset,
 	frame: { date: number; time: number; duration: number }
 ) {
+	if (preset.kind === 'multiModal') {
+		return {
+			multiModal: {
+				frame,
+				maxTransfers: TRANSIT_MAX_TRANSFERS,
+				travelTypes: [...preset.travelTypes]
+			}
+		};
+	}
+
+	const mode = preset.targomoMode;
 	if (mode === 'transit' || mode === 'walktransit' || mode === 'biketransit') {
 		return {
 			[mode]: {
@@ -295,17 +347,33 @@ function nextTuesdayMorning(): { date: number; time: number; duration: number } 
 
 function summarizeRequest(args: {
 	appMode: PublicIsochroneMode;
-	mode: TargomoTravelMode;
+	preset: TargomoPreset;
 	minutes: number[];
 	frame: { date: number; time: number; duration: number };
 }) {
+	const descriptor = describePreset(args.preset);
 	return {
 		appMode: args.appMode,
-		providerMode: args.mode,
+		providerMode: descriptor.providerMode,
+		travelTypes: descriptor.travelTypes,
 		minutes: args.minutes,
 		contourCount: args.minutes.length,
 		maxMinutes: args.minutes.at(-1),
 		frame: args.frame
+	};
+}
+
+function describePreset(preset: TargomoPreset) {
+	if (preset.kind === 'multiModal') {
+		return {
+			providerMode: 'multiModal' as const,
+			travelTypes: [...preset.travelTypes]
+		};
+	}
+
+	return {
+		providerMode: preset.targomoMode,
+		travelTypes: undefined
 	};
 }
 

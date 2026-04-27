@@ -19,7 +19,7 @@ TARGOMO_API_KEY=...
 
 `TARGOMO_API_KEY` is required in the active Convex environment, including any preview or production Convex deployment that serves isochrone requests. The current isochrone implementation for walking, cycling, driving, public transport with walking access/egress, and cycling + transit uses Targomo only; no `MAPBOX_ACCESS_TOKEN` is required for this path.
 
-Supported isochrone modes are walking, cycling, driving, public transport with walking access/egress, and cycling + public transport through Targomo. The transit UI mode uses Targomo `transit`, which already includes walking access/egress around public transport. Credentialed smoke testing for Norway-area transit and `biketransit` coverage is still pending. Road modes depend on OpenStreetMap coverage; transit modes depend on Targomo regional transit/GTFS coverage and should be smoke-tested before relying on preview or production results.
+Supported isochrone modes are walking, cycling, driving, public transport with walking access/egress, and cycling + public transport through Targomo. The transit UI mode uses Targomo `transit`, which already includes walking access/egress around public transport. The cycling + public transport mode uses Targomo `multiModal` with a `bike -> transit -> bike` sequence so it models mixed bike/transit travel instead of the narrower `biketransit` behavior. Credentialed smoke testing for Norway-area transit and multimodal coverage is still pending. Road modes depend on OpenStreetMap coverage; transit modes depend on Targomo regional transit/GTFS coverage and should be smoke-tested before relying on preview or production results.
 
 ## Building
 

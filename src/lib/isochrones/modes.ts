@@ -1,5 +1,12 @@
 export type IsochroneModeId = 'walk' | 'cycling' | 'driving' | 'transit' | 'cyclingTransit';
-export type TargomoTravelMode = 'walk' | 'bike' | 'car' | 'transit' | 'walktransit' | 'biketransit';
+export type TargomoTravelMode =
+	| 'walk'
+	| 'bike'
+	| 'car'
+	| 'transit'
+	| 'walktransit'
+	| 'biketransit'
+	| 'multiModal';
 
 export type IsochroneBand = {
 	minutes: number;
@@ -95,7 +102,7 @@ export const enabledIsochroneModes = [
 		label: 'Sykkel + kollektivt',
 		shortLabel: 'Sykkel+kol.',
 		legendTitle: 'Sykkel og kollektivt',
-		targomoMode: 'biketransit',
+		targomoMode: 'multiModal',
 		referenceMode: 'cycling',
 		renderStyle: 'transit',
 		errorMessage: 'Kunne ikke hente rekkevidde for sykkel og kollektivt for valgt adresse.',
