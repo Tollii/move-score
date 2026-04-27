@@ -7,12 +7,17 @@
 	import { difference, featureCollection } from '@turf/turf';
 	import { api } from '../../convex/_generated/api';
 	import type { GeonorgeAddress } from '$lib/geonorge/address';
+	import {
+		ISOCHRONE_MODES_BY_ID,
+		type IsochroneModeConfig,
+		type IsochroneModeId
+	} from '$lib/isochrones/modes';
 
 	type Props = {
 		selectedAddress?: GeonorgeAddress;
 		class?: string;
 		triggerKey?: number;
-		mode?: 'walk' | 'transit';
+		mode?: IsochroneModeId;
 		visibleBandMinutes?: number[];
 		isLoading?: boolean;
 		error?: string | undefined;
@@ -48,9 +53,9 @@
 	let mapReady = $state(false);
 	let origin = $state<{ lat: number; lon: number } | null>(null);
 	let isochrone = $state<IsochroneFeatureCollection | null>(null);
-	let walkIsochrone = $state<IsochroneFeatureCollection | null>(null);
+	let referenceIsochrone = $state<IsochroneFeatureCollection | null>(null);
 	let renderedIsochrone = $state<IsochroneFeatureCollection | null>(null);
-	let renderedWalkIsochrone = $state<IsochroneFeatureCollection | null>(null);
+	let renderedReferenceIsochrone = $state<IsochroneFeatureCollection | null>(null);
 	let selectedOriginKey = '';
 	let activeRequestKey = '';
 	let loadedIsochroneKey = '';
@@ -58,22 +63,6 @@
 	let lastTriggerKey = 0;
 
 	const client = useConvexClient();
-
-	const WALK_BANDS = [
-		{ minutes: 5, color: '#16a34a', label: '0–5 min' },
-		{ minutes: 10, color: '#ca8a04', label: '5–10 min' },
-		{ minutes: 15, color: '#ea580c', label: '10–15 min' },
-		{ minutes: 20, color: '#dc2626', label: '15–20 min' }
-	];
-
-	const TRANSIT_BANDS = [
-		{ minutes: 10, color: '#059669', label: '0–10 min' },
-		{ minutes: 15, color: '#65a30d', label: '10–15 min' },
-		{ minutes: 20, color: '#d97706', label: '15–20 min' },
-		{ minutes: 30, color: '#ea580c', label: '20–30 min' },
-		{ minutes: 45, color: '#dc2626', label: '30–45 min' },
-		{ minutes: 60, color: '#9f1239', label: '45–60 min' }
-	];
 
 	onMount(() => {
 		let destroyed = false;
@@ -130,9 +119,9 @@
 		loadedIsochroneKey = '';
 		origin = { lat: point.lat, lon: point.lon };
 		isochrone = null;
-		walkIsochrone = null;
+		referenceIsochrone = null;
 		renderedIsochrone = null;
-		renderedWalkIsochrone = null;
+		renderedReferenceIsochrone = null;
 		error = undefined;
 		clearIsochroneLayers();
 		moveMapToOrigin();
@@ -175,41 +164,24 @@
 
 		try {
 			const currentMode = mode;
+			const currentConfig = ISOCHRONE_MODES_BY_ID[currentMode];
+			const referenceConfig = currentConfig.referenceMode
+				? ISOCHRONE_MODES_BY_ID[currentConfig.referenceMode]
+				: undefined;
 
-			if (currentMode === 'transit') {
-				const [transitGeojson, walkGeojson] = await Promise.all([
-					client.action(api.isochrones.getTransitIsochrone, {
-						lat,
-						lon,
-						minutes: TRANSIT_BANDS.map((b) => b.minutes)
-					}),
-					client.action(api.isochrones.getWalkIsochrone, {
-						lat,
-						lon,
-						minutes: WALK_BANDS.map((b) => b.minutes)
-					})
-				]);
+			const [primaryGeojson, referenceGeojson] = await Promise.all([
+				loadModeIsochrone(currentConfig, lat, lon),
+				referenceConfig ? loadReferenceIsochrone(referenceConfig, lat, lon) : Promise.resolve(null)
+			]);
 
-				if (activeRequestKey !== requestKey) return;
+			if (activeRequestKey !== requestKey) return;
 
-				isochrone = parseIsochrone(transitGeojson);
-				walkIsochrone = parseIsochrone(walkGeojson);
-				renderedIsochrone = prepareIsochroneForRendering(isochrone);
-				renderedWalkIsochrone = prepareIsochroneForRendering(walkIsochrone);
-			} else {
-				const geojson = await client.action(api.isochrones.getWalkIsochrone, {
-					lat,
-					lon,
-					minutes: WALK_BANDS.map((b) => b.minutes)
-				});
-
-				if (activeRequestKey !== requestKey) return;
-
-				isochrone = parseIsochrone(geojson);
-				walkIsochrone = null;
-				renderedIsochrone = prepareIsochroneForRendering(isochrone);
-				renderedWalkIsochrone = null;
-			}
+			isochrone = parseIsochrone(primaryGeojson);
+			referenceIsochrone = referenceGeojson ? parseIsochrone(referenceGeojson) : null;
+			renderedIsochrone = prepareIsochroneForRendering(isochrone);
+			renderedReferenceIsochrone = referenceIsochrone
+				? prepareIsochroneForRendering(referenceIsochrone)
+				: null;
 
 			loadedIsochroneKey = requestKey;
 			renderIsochrone({ moveCamera: true });
@@ -217,17 +189,12 @@
 			if (activeRequestKey !== requestKey) return;
 
 			isochrone = null;
-			walkIsochrone = null;
+			referenceIsochrone = null;
 			renderedIsochrone = null;
-			renderedWalkIsochrone = null;
+			renderedReferenceIsochrone = null;
 			loadedIsochroneKey = '';
 			clearIsochroneLayers();
-			error =
-				mode === 'transit'
-					? 'Kunne ikke hente kollektivrekkevidden for valgt adresse.'
-					: isRateLimitError(err)
-						? 'Mapbox har nådd rate limit. Kartet er flyttet, men gangavstand kan hentes igjen om litt.'
-						: 'Kunne ikke hente gangavstand for valgt adresse.';
+			error = errorMessageForMode(ISOCHRONE_MODES_BY_ID[mode], err);
 		} finally {
 			if (activeRequestKey === requestKey) {
 				isLoading = false;
@@ -239,15 +206,19 @@
 		if (!map || !renderedIsochrone) return;
 		clearIsochroneLayers();
 
-		// When transit is shown, draw walk isochrone as ghost reference underneath
-		if (mode === 'transit' && renderedWalkIsochrone) {
-			const ghostFeatures = [...renderedWalkIsochrone.features]
+		const modeConfig = ISOCHRONE_MODES_BY_ID[mode];
+		const referenceConfig = modeConfig.referenceMode
+			? ISOCHRONE_MODES_BY_ID[modeConfig.referenceMode]
+			: undefined;
+
+		if (referenceConfig && renderedReferenceIsochrone) {
+			const ghostFeatures = [...renderedReferenceIsochrone.features]
 				.filter(isPolygonFeature)
 				.sort((a, b) => featureValue(b) - featureValue(a));
 
 			for (const [index, feature] of ghostFeatures.entries()) {
-				const id = `iso-walk-ghost-${featureValue(feature)}-${index}`;
-				const color = walkBandColor(feature);
+				const id = `iso-${referenceConfig.id}-ghost-${featureValue(feature)}-${index}`;
+				const color = featureColor(feature, referenceConfig);
 				map.addSource(id, { type: 'geojson', data: feature });
 				map.addLayer({
 					id,
@@ -266,7 +237,7 @@
 
 		for (const [index, feature] of polygonFeatures.entries()) {
 			const id = `iso-fill-${featureValue(feature)}-${index}`;
-			const color = featureColor(feature);
+			const color = featureColor(feature, modeConfig);
 			map.addSource(id, { type: 'geojson', data: feature });
 			map.addLayer({
 				id,
@@ -274,7 +245,7 @@
 				source: id,
 				paint: {
 					'fill-color': color,
-					'fill-opacity': featureFillOpacity(feature),
+					'fill-opacity': featureFillOpacity(feature, modeConfig),
 					'fill-outline-color': color
 				}
 			});
@@ -286,8 +257,8 @@
 				source: id,
 				paint: {
 					'line-color': color,
-					'line-opacity': featureLineOpacity(feature),
-					'line-width': featureLineWidth(feature)
+					'line-opacity': featureLineOpacity(feature, modeConfig),
+					'line-width': featureLineWidth(feature, modeConfig)
 				}
 			});
 			renderedIsochroneLayerIds = [...renderedIsochroneLayerIds, id, outlineId];
@@ -300,6 +271,23 @@
 
 	function parseIsochrone(value: unknown): IsochroneFeatureCollection {
 		return (typeof value === 'string' ? JSON.parse(value) : value) as IsochroneFeatureCollection;
+	}
+
+	function loadModeIsochrone(config: IsochroneModeConfig, lat: number, lon: number) {
+		return client.action(api.isochrones.getIsochrone, {
+			lat,
+			lon,
+			mode: config.id
+		});
+	}
+
+	async function loadReferenceIsochrone(config: IsochroneModeConfig, lat: number, lon: number) {
+		try {
+			return await loadModeIsochrone(config, lat, lon);
+		} catch (err) {
+			console.warn('Reference isochrone failed', { mode: config.id, error: String(err) });
+			return null;
+		}
 	}
 
 	function prepareIsochroneForRendering(
@@ -402,16 +390,16 @@
 		});
 	}
 
-	function featureColor(feature: IsochroneFeature) {
+	function featureColor(feature: IsochroneFeature, config: IsochroneModeConfig) {
 		const minutes = featureValue(feature) / 60;
-		const bands = mode === 'transit' ? TRANSIT_BANDS : WALK_BANDS;
+		const bands = config.bands;
 		return (
 			bands.find((b) => Math.abs(b.minutes - minutes) < 0.5)?.color ?? bands[bands.length - 1].color
 		);
 	}
 
-	function featureFillOpacity(feature: IsochroneFeature) {
-		if (mode !== 'transit') {
+	function featureFillOpacity(feature: IsochroneFeature, config: IsochroneModeConfig) {
+		if (config.renderStyle !== 'transit') {
 			return 0.32;
 		}
 
@@ -424,8 +412,8 @@
 		return 0.24;
 	}
 
-	function featureLineOpacity(feature: IsochroneFeature) {
-		if (mode !== 'transit') {
+	function featureLineOpacity(feature: IsochroneFeature, config: IsochroneModeConfig) {
+		if (config.renderStyle !== 'transit') {
 			return 0.42;
 		}
 
@@ -435,8 +423,8 @@
 		return 0.42;
 	}
 
-	function featureLineWidth(feature: IsochroneFeature) {
-		if (mode !== 'transit') {
+	function featureLineWidth(feature: IsochroneFeature, config: IsochroneModeConfig) {
+		if (config.renderStyle !== 'transit') {
 			return 1.2;
 		}
 
@@ -455,14 +443,6 @@
 		return visibleBandMinutes.some((band) => Math.abs(band - minutes) < 0.5);
 	}
 
-	function walkBandColor(feature: IsochroneFeature) {
-		const minutes = featureValue(feature) / 60;
-		return (
-			WALK_BANDS.find((b) => Math.abs(b.minutes - minutes) < 0.5)?.color ??
-			WALK_BANDS[WALK_BANDS.length - 1].color
-		);
-	}
-
 	function isPolygonGeometry(
 		geometry: GeoJSON.Geometry | null
 	): geometry is GeoJSON.Polygon | GeoJSON.MultiPolygon {
@@ -475,7 +455,24 @@
 
 	function isRateLimitError(err: unknown) {
 		const message = err instanceof Error ? err.message : String(err);
-		return message.includes('429') || message.toLowerCase().includes('rate limit');
+		return (
+			message.includes('429') ||
+			message.includes('TARGOMO_ISOCHRONE_RATE_LIMITED') ||
+			message.toLowerCase().includes('rate limit')
+		);
+	}
+
+	function errorMessageForMode(config: IsochroneModeConfig, err: unknown) {
+		const message = err instanceof Error ? err.message : String(err);
+		if (isRateLimitError(err) && config.rateLimitMessage) {
+			return config.rateLimitMessage;
+		}
+
+		if (message.includes('TARGOMO_API_KEY_MISSING')) {
+			return 'Karttjenesten mangler konfigurasjon i backend-miljoet.';
+		}
+
+		return config.errorMessage;
 	}
 </script>
 

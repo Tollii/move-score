@@ -10,17 +10,20 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import PersonSimpleWalk from 'phosphor-svelte/lib/PersonSimpleWalk';
 	import Bus from 'phosphor-svelte/lib/Bus';
+	import Car from 'phosphor-svelte/lib/Car';
+	import Bicycle from 'phosphor-svelte/lib/Bicycle';
 	import type { PropertyData } from './EiendomSection.svelte';
 	import type { TransitStop } from './KollektivtSection.svelte';
 	import type { Amenity } from './NabolagSection.svelte';
 	import type { Scores } from './ScoreSection.svelte';
 	import type { GeonorgeAddress } from '$lib/geonorge/address';
 	import type { FinnListingInfo } from '$lib/finn/address';
+	import { enabledIsochroneModes, type IsochroneModeId } from '$lib/isochrones/modes';
 
 	type Props = {
 		address: GeonorgeAddress;
 		isochronesShown: boolean;
-		activeMode?: 'walk' | 'transit';
+		activeMode?: IsochroneModeId;
 		isLoading?: boolean;
 		property?: PropertyData;
 		finnListing?: FinnListingInfo;
@@ -28,7 +31,7 @@
 		amenities?: Amenity[];
 		scores?: Scores;
 		overallScore?: number;
-		onShowIsochrones: (mode: 'walk' | 'transit') => void;
+		onShowIsochrones: (mode: IsochroneModeId) => void;
 	};
 
 	let {
@@ -55,6 +58,13 @@
 
 	let activeTab = $state('eiendom');
 	let scrollEl = $state<HTMLDivElement | undefined>();
+	const modeIcons = {
+		walk: PersonSimpleWalk,
+		transit: Bus,
+		driving: Car,
+		cycling: Bicycle,
+		cyclingTransit: Bicycle
+	} satisfies Record<IsochroneModeId, typeof PersonSimpleWalk>;
 
 	$effect(() => {
 		void address;
@@ -85,37 +95,34 @@
 
 	<!-- CTA -->
 	<div class="walk-section" class:no-border={!isochronesShown}>
-		<div class="flex gap-1.5">
-			<Button
-				variant="secondary"
-				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'walk'
-					? 'bg-primary text-primary-foreground hover:bg-primary/90'
-					: ''}"
-				disabled={isLoading}
-				onclick={() => onShowIsochrones('walk')}
-			>
-				{#if isLoading && activeMode === 'walk'}
-					<Spinner class="size-3.5" />
-				{:else}
-					<PersonSimpleWalk size={16} weight="bold" />
-				{/if}
-				Gangavstand
-			</Button>
-			<Button
-				variant="secondary"
-				class="flex-1 gap-1.5 text-[13px] font-semibold {isochronesShown && activeMode === 'transit'
-					? 'bg-primary text-primary-foreground hover:bg-primary/90'
-					: ''}"
-				disabled={isLoading}
-				onclick={() => onShowIsochrones('transit')}
-			>
-				{#if isLoading && activeMode === 'transit'}
-					<Spinner class="size-3.5" />
-				{:else}
-					<Bus size={16} weight="bold" />
-				{/if}
-				Kollektivt
-			</Button>
+		<div class="mode-grid">
+			{#each enabledIsochroneModes as mode (mode.id)}
+				{@const Icon = modeIcons[mode.id]}
+				<Button
+					variant="secondary"
+					class="mode-button gap-1.5 text-[12px] font-semibold {isochronesShown &&
+					activeMode === mode.id
+						? 'bg-primary text-primary-foreground hover:bg-primary/90'
+						: ''}"
+					disabled={isLoading}
+					title={mode.label}
+					aria-label={mode.label}
+					onclick={() => onShowIsochrones(mode.id)}
+					aria-pressed={isochronesShown && activeMode === mode.id}
+				>
+					{#if isLoading && activeMode === mode.id}
+						<Spinner class="size-3.5" />
+					{:else if mode.id === 'cyclingTransit'}
+						<span class="combo-icons" aria-hidden="true">
+							<Bicycle size={15} weight="bold" />
+							<Bus size={15} weight="bold" />
+						</span>
+					{:else}
+						<Icon size={16} weight="bold" />
+					{/if}
+					{mode.shortLabel}
+				</Button>
+			{/each}
 		</div>
 	</div>
 
@@ -197,5 +204,20 @@
 	}
 	.walk-section.no-border {
 		border-bottom: none;
+	}
+	.mode-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 6px;
+	}
+	:global(.mode-button) {
+		min-width: 0;
+		height: 36px;
+	}
+	.combo-icons {
+		display: inline-flex;
+		align-items: center;
+		gap: 1px;
+		flex-shrink: 0;
 	}
 </style>
