@@ -23,7 +23,7 @@ Sub-agents do not decide the overall workflow. They return artifacts, status, bl
 
 ## Project Adapter
 
-- Work in `Tollii/move-score` with `main` as the PR base and `codex/` branches unless the user asks otherwise.
+- Work in `Tollii/move-score` with `main` as the PR base
 - Use GitHub Issues and PRs. The issue board is available but lightly used, so keep process lightweight for solo-maintainer work.
 - Prefer the repo tools `move_score_validate`, `move_score_format_files`, `move_score_convex_codegen`, `move_score_git_status`, and `move_score_categorize_files` when they are available; fall back to `pnpm` scripts and direct `git` commands when they are not.
 - Validate with `pnpm check`, `pnpm lint`, and `pnpm build` when risk warrants it; use targeted checks first.
