@@ -7,6 +7,7 @@ export type TargomoTravelMode =
 	| 'walktransit'
 	| 'biketransit'
 	| 'multiModal';
+export type MultiModalTravelType = 'walk' | 'bike' | 'car' | 'transit';
 
 export type IsochroneBand = {
 	minutes: number;
@@ -20,12 +21,25 @@ export type IsochroneModeConfig = {
 	shortLabel: string;
 	legendTitle: string;
 	targomoMode: TargomoTravelMode;
+	travelTypes?: readonly MultiModalTravelType[];
 	referenceMode?: IsochroneModeId;
 	renderStyle: 'standard' | 'transit';
 	errorMessage: string;
 	rateLimitMessage?: string;
 	bands: IsochroneBand[];
 };
+
+export type TargomoPreset =
+	| {
+			kind: 'single';
+			targomoMode: Exclude<TargomoTravelMode, 'multiModal'>;
+			minutes: readonly number[];
+	  }
+	| {
+			kind: 'multiModal';
+			travelTypes: readonly MultiModalTravelType[];
+			minutes: readonly number[];
+	  };
 
 export const enabledIsochroneModes = [
 	{
@@ -103,6 +117,9 @@ export const enabledIsochroneModes = [
 		shortLabel: 'Sykkel+kol.',
 		legendTitle: 'Sykkel og kollektivt',
 		targomoMode: 'multiModal',
+		// Prefer an explicit bike->transit->bike sequence over `biketransit`, which excludes
+		// routes where bicycles are not allowed on every transit leg and produced smaller catchments.
+		travelTypes: ['bike', 'transit', 'bike'],
 		referenceMode: 'cycling',
 		renderStyle: 'transit',
 		errorMessage: 'Kunne ikke hente rekkevidde for sykkel og kollektivt for valgt adresse.',
@@ -129,4 +146,26 @@ export const ISOCHRONE_MODES_BY_ID: Record<IsochroneModeId, IsochroneModeConfig>
 
 export function isEnabledIsochroneMode(value: unknown): value is IsochroneModeId {
 	return typeof value === 'string' && value in ISOCHRONE_MODES_BY_ID;
+}
+
+export function getTargomoPreset(mode: IsochroneModeConfig): TargomoPreset {
+	const minutes = mode.bands.map((band) => band.minutes);
+
+	if (mode.targomoMode === 'multiModal') {
+		if (!mode.travelTypes?.length) {
+			throw new Error(`Isochrone mode ${mode.id} is missing multimodal travel types`);
+		}
+
+		return {
+			kind: 'multiModal',
+			travelTypes: [...mode.travelTypes],
+			minutes
+		};
+	}
+
+	return {
+		kind: 'single',
+		targomoMode: mode.targomoMode,
+		minutes
+	};
 }

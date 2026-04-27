@@ -1,6 +1,12 @@
 // convex/isochrones.ts
 import { action } from './_generated/server';
 import { v } from 'convex/values';
+import {
+	ISOCHRONE_MODES_BY_ID,
+	getTargomoPreset,
+	type IsochroneModeId,
+	type TargomoPreset
+} from '../lib/isochrones/modes';
 
 const TARGOMO_BASE = 'https://api.targomo.com/westcentraleurope/v1';
 const MAX_CONTOUR_MINUTES = 120;
@@ -19,15 +25,6 @@ const SUPPORTED_TARGOMO_MODES = [
 const FEATURE_VALUE_KEYS = ['value', 'time', 'travelTime', 'cost', 'edgeWeight'] as const;
 const CONTOUR_HINT_KEYS = ['range', 'contour'] as const;
 
-type TargomoTravelMode =
-	| 'walk'
-	| 'bike'
-	| 'car'
-	| 'transit'
-	| 'walktransit'
-	| 'biketransit'
-	| 'multiModal';
-type MultiModalTravelType = 'walk' | 'bike' | 'car' | 'transit';
 type ProviderErrorCode =
 	| 'TARGOMO_API_KEY_MISSING'
 	| 'TARGOMO_ISOCHRONE_FAILED'
@@ -45,40 +42,12 @@ type GeoJsonFeatureCollection = {
 	}>;
 };
 
-type TargomoPreset =
-	| {
-			kind: 'single';
-			targomoMode: Exclude<TargomoTravelMode, 'multiModal'>;
-			minutes: readonly number[];
-	  }
-	| {
-			kind: 'multiModal';
-			travelTypes: readonly MultiModalTravelType[];
-			minutes: readonly number[];
-	  };
-
-const PUBLIC_ISOCHRONE_PRESETS = {
-	walk: { kind: 'single', targomoMode: 'walk', minutes: [5, 10, 15, 20] },
-	cycling: { kind: 'single', targomoMode: 'bike', minutes: [5, 10, 20, 30] },
-	driving: { kind: 'single', targomoMode: 'car', minutes: [10, 20, 30, 45] },
-	transit: { kind: 'single', targomoMode: 'transit', minutes: [10, 15, 20, 30, 45, 60] },
-	// `biketransit` produced smaller catchments than walk+transit in practice because it filters
-	// out transit routes that do not allow bicycles. Use an explicit multimodal bike->transit->bike
-	// sequence instead to model the intended "bike + public transport" reachability.
-	cyclingTransit: {
-		kind: 'multiModal',
-		travelTypes: ['bike', 'transit', 'bike'],
-		minutes: [10, 20, 30, 45, 60]
-	}
-} as const satisfies Record<string, TargomoPreset>;
-
-type PublicIsochroneMode = keyof typeof PUBLIC_ISOCHRONE_PRESETS;
 type TargomoIsochroneArgs = {
 	lat: number;
 	lon: number;
 	minutes: readonly number[];
 	preset: TargomoPreset;
-	appMode: PublicIsochroneMode;
+	appMode: IsochroneModeId;
 };
 
 export const getIsochrone = action({
@@ -94,7 +63,7 @@ export const getIsochrone = action({
 		)
 	},
 	handler: async (_ctx, args): Promise<string> => {
-		const preset = PUBLIC_ISOCHRONE_PRESETS[args.mode];
+		const preset = getTargomoPreset(ISOCHRONE_MODES_BY_ID[args.mode]);
 		return JSON.stringify(
 			await fetchTargomoIsochrone({
 				lat: args.lat,
@@ -346,7 +315,7 @@ function nextTuesdayMorning(): { date: number; time: number; duration: number } 
 }
 
 function summarizeRequest(args: {
-	appMode: PublicIsochroneMode;
+	appMode: IsochroneModeId;
 	preset: TargomoPreset;
 	minutes: number[];
 	frame: { date: number; time: number; duration: number };
