@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { AddressLookup, MoveScoreMap, searchGeonorgeAddresses, type GeonorgeAddress } from '$lib';
+	import {
+		AddressLookup,
+		MoveScoreMap,
+		searchGeonorgeAddresses,
+		type GeonorgeAddress,
+		type GeonorgePoint
+	} from '$lib';
 	import AddressCard from '$lib/components/AddressCard.svelte';
 	import type { FinnListingInfo } from '$lib/finn/address';
 	import {
@@ -10,6 +16,9 @@
 	} from '$lib/isochrones/modes';
 
 	const ADDRESS_QUERY_PARAM = 'address';
+	const LAT_QUERY_PARAM = 'lat';
+	const LON_QUERY_PARAM = 'lon';
+	const MAP_POINT_LABEL = 'Valgt punkt på kartet';
 
 	let selectedAddress = $state<GeonorgeAddress | undefined>();
 	let selectedFinnListing = $state<FinnListingInfo | undefined>();
@@ -44,20 +53,40 @@
 		}
 	}
 
+	function handleMapPointSelect(point: GeonorgePoint) {
+		const nextMode = isochronesShown ? isochroneMode : 'walk';
+
+		selectedAddress = createMapPointSelection(point);
+		selectedFinnListing = undefined;
+		isochroneError = undefined;
+		handleShowIsochrones(nextMode);
+		updatePointQueryParam(point);
+	}
+
 	function handlePopState() {
 		void selectAddressFromUrl();
 	}
 
 	async function selectAddressFromUrl() {
-		const queryAddress = new URL(globalThis.location.href).searchParams
-			.get(ADDRESS_QUERY_PARAM)
-			?.trim();
+		const url = new URL(globalThis.location.href);
+		const lat = parseCoordinateQueryParam(url.searchParams.get(LAT_QUERY_PARAM), -90, 90);
+		const lon = parseCoordinateQueryParam(url.searchParams.get(LON_QUERY_PARAM), -180, 180);
 
-		if (!queryAddress) {
-			selectedAddress = undefined;
+		if (lat !== undefined && lon !== undefined) {
+			const point = { lat, lon };
+
+			selectedAddress = createMapPointSelection(point);
 			selectedFinnListing = undefined;
 			isochroneError = undefined;
 			isochronesShown = false;
+			updatePointQueryParam(point, 'replace');
+			return;
+		}
+
+		const queryAddress = url.searchParams.get(ADDRESS_QUERY_PARAM)?.trim();
+
+		if (!queryAddress) {
+			clearSelectedLocation();
 			return;
 		}
 
@@ -70,10 +99,7 @@
 
 			const [address] = response.adresser;
 			if (!address) {
-				selectedAddress = undefined;
-				selectedFinnListing = undefined;
-				isochroneError = undefined;
-				isochronesShown = false;
+				clearSelectedLocation();
 				return;
 			}
 
@@ -90,12 +116,63 @@
 	function updateAddressQueryParam(address: GeonorgeAddress, mode: 'push' | 'replace' = 'push') {
 		const url = new URL(globalThis.location.href);
 		url.searchParams.set(ADDRESS_QUERY_PARAM, formatAddress(address));
+		url.searchParams.delete(LAT_QUERY_PARAM);
+		url.searchParams.delete(LON_QUERY_PARAM);
 
+		updateBrowserLocation(url, mode);
+	}
+
+	function updatePointQueryParam(point: GeonorgePoint, mode: 'push' | 'replace' = 'push') {
+		const url = new URL(globalThis.location.href);
+		url.searchParams.delete(ADDRESS_QUERY_PARAM);
+		url.searchParams.set(LAT_QUERY_PARAM, formatCoordinateQueryParam(point.lat));
+		url.searchParams.set(LON_QUERY_PARAM, formatCoordinateQueryParam(point.lon));
+
+		updateBrowserLocation(url, mode);
+	}
+
+	function updateBrowserLocation(url: URL, mode: 'push' | 'replace') {
 		if (url.href === globalThis.location.href) {
 			return;
 		}
 
 		globalThis.history[mode === 'replace' ? 'replaceState' : 'pushState']({}, '', url);
+	}
+
+	function clearSelectedLocation() {
+		selectedAddress = undefined;
+		selectedFinnListing = undefined;
+		isochroneError = undefined;
+		isochronesShown = false;
+	}
+
+	function createMapPointSelection(point: GeonorgePoint): GeonorgeAddress {
+		return {
+			adressetekst: MAP_POINT_LABEL,
+			adressetekstutenadressetilleggsnavn: MAP_POINT_LABEL,
+			representasjonspunkt: point
+		};
+	}
+
+	function parseCoordinateQueryParam(
+		value: string | null,
+		min: number,
+		max: number
+	): number | undefined {
+		if (!value) {
+			return undefined;
+		}
+
+		const parsed = Number(value);
+		if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+			return undefined;
+		}
+
+		return parsed;
+	}
+
+	function formatCoordinateQueryParam(value: number) {
+		return value.toFixed(6);
 	}
 
 	function formatAddress(address: GeonorgeAddress) {
@@ -153,6 +230,7 @@
 		{triggerKey}
 		mode={isochroneMode}
 		{visibleBandMinutes}
+		onSelectPoint={handleMapPointSelect}
 		bind:isLoading={isochroneLoading}
 		bind:error={isochroneError}
 	/>
@@ -179,7 +257,10 @@
 			{#if !selectedAddress}
 				<div class="tagline">
 					<h1>Finn nabolaget som passer livet ditt.</h1>
-					<p>Søk etter en adresse og sammenlign gange, sykkel, bil, kollektivt og nabolagsinfo.</p>
+					<p>
+						Søk etter en adresse eller klikk et punkt i kartet for å sammenligne gange, sykkel, bil,
+						kollektivt og nabolagsinfo.
+					</p>
 				</div>
 			{/if}
 

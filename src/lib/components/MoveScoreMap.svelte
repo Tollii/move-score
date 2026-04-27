@@ -6,7 +6,7 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { difference, featureCollection } from '@turf/turf';
 	import { api } from '../../convex/_generated/api';
-	import type { GeonorgeAddress } from '$lib/geonorge/address';
+	import type { GeonorgeAddress, GeonorgePoint } from '$lib/geonorge/address';
 	import {
 		ISOCHRONE_MODES_BY_ID,
 		type IsochroneModeConfig,
@@ -19,6 +19,7 @@
 		triggerKey?: number;
 		mode?: IsochroneModeId;
 		visibleBandMinutes?: number[];
+		onSelectPoint?: (point: GeonorgePoint) => void;
 		isLoading?: boolean;
 		error?: string | undefined;
 	};
@@ -43,6 +44,7 @@
 		triggerKey = 0,
 		mode = 'walk',
 		visibleBandMinutes,
+		onSelectPoint,
 		isLoading = $bindable<boolean>(),
 		error = $bindable<string | undefined>()
 	}: Props = $props();
@@ -89,6 +91,9 @@
 			map.addControl(new maplibre.default.AttributionControl({ compact: true }), 'bottom-right');
 
 			marker = new maplibre.default.Marker({ color: '#ffb000', scale: 1.05 });
+			map.on('click', (event) => {
+				onSelectPoint?.({ lat: event.lngLat.lat, lon: event.lngLat.lng });
+			});
 			map.on('load', () => {
 				mapReady = true;
 			});
@@ -484,6 +489,7 @@
 	/* Subtle warmth + slight desaturation to harmonize with the card design */
 	.map-canvas {
 		filter: saturate(0.88) contrast(0.94) brightness(1.04);
+		cursor: crosshair;
 	}
 
 	/* Zoom controls — white card style matching the panel cards */
