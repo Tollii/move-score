@@ -45,6 +45,7 @@
 	$effect(() => {
 		if (!initialized) {
 			query = defaultQuery;
+			selectedQuery = defaultQuery.trim();
 			initialized = true;
 		}
 	});

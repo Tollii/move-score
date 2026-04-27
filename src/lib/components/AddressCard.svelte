@@ -58,6 +58,10 @@
 
 	let activeTab = $state('eiendom');
 	let scrollEl = $state<HTMLDivElement | undefined>();
+	const addressTitle = $derived(
+		address.adressetekst ?? address.adressetekstutenadressetilleggsnavn ?? 'Valgt punkt på kartet'
+	);
+	const addressSubtitle = $derived(formatAddressSubtitle(address));
 	const modeIcons = {
 		walk: PersonSimpleWalk,
 		transit: Bus,
@@ -75,6 +79,20 @@
 		void activeTab;
 		if (scrollEl) scrollEl.scrollTop = 0;
 	});
+
+	function formatAddressSubtitle(address: GeonorgeAddress) {
+		const place = [address.postnummer, address.poststed].filter(Boolean).join(' ');
+		if (place || address.kommunenavn) {
+			return [place, address.kommunenavn].filter(Boolean).join(' · ');
+		}
+
+		const point = address.representasjonspunkt;
+		if (!point) {
+			return '';
+		}
+
+		return `${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`;
+	}
 </script>
 
 <div class="card" style="margin-top: 8px; overflow: hidden;">
@@ -82,12 +100,11 @@
 	<div class="address-header">
 		<div style="display: flex; align-items: flex-start; gap: 10px;">
 			<div style="flex: 1;">
-				<div class="lbl">Valgt adresse</div>
-				<div class="address-main">{address.adressetekst}</div>
-				<div class="address-sub">
-					{address.postnummer}
-					{address.poststed}{#if address.kommunenavn}&thinsp;·&thinsp;{address.kommunenavn}{/if}
-				</div>
+				<div class="lbl">Valgt sted</div>
+				<div class="address-main">{addressTitle}</div>
+				{#if addressSubtitle}
+					<div class="address-sub">{addressSubtitle}</div>
+				{/if}
 			</div>
 			<ScoreCircle score={overallScore ?? null} size={50} />
 		</div>
