@@ -1,10 +1,6 @@
 export type IsochroneModeId = 'walk' | 'cycling' | 'driving' | 'transit' | 'cyclingTransit';
 export type TargomoTravelMode = 'walk' | 'bike' | 'car' | 'transit' | 'walktransit' | 'biketransit';
 
-// Prefer walktransit until credentialed smoke testing proves polygon_post needs
-// a transit fallback for this path.
-export const TARGOMO_TRANSIT_MODE: 'walktransit' | 'transit' = 'walktransit';
-
 export type IsochroneBand = {
 	minutes: number;
 	color: string;
@@ -79,7 +75,7 @@ export const enabledIsochroneModes = [
 		label: 'Kollektivt',
 		shortLabel: 'Kollektiv',
 		legendTitle: 'Kollektivrekkevidden',
-		targomoMode: TARGOMO_TRANSIT_MODE,
+		targomoMode: 'transit',
 		referenceMode: 'walk',
 		renderStyle: 'transit',
 		errorMessage: 'Kunne ikke hente kollektivrekkevidden for valgt adresse.',

@@ -40,7 +40,7 @@ const PUBLIC_ISOCHRONE_PRESETS = {
 	walk: { targomoMode: 'walk', minutes: [5, 10, 15, 20] },
 	cycling: { targomoMode: 'bike', minutes: [5, 10, 20, 30] },
 	driving: { targomoMode: 'car', minutes: [10, 20, 30, 45] },
-	transit: { targomoMode: 'walktransit', minutes: [10, 15, 20, 30, 45, 60] },
+	transit: { targomoMode: 'transit', minutes: [10, 15, 20, 30, 45, 60] },
 	cyclingTransit: { targomoMode: 'biketransit', minutes: [10, 20, 30, 45, 60] }
 } as const satisfies Record<string, { targomoMode: TargomoTravelMode; minutes: readonly number[] }>;
 
