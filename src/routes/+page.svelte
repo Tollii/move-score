@@ -9,6 +9,7 @@
 	} from '$lib';
 	import AddressCard from '$lib/components/AddressCard.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
+	import { analyticsErrorCode, trackEvent } from '$lib/analytics';
 	import type { FinnListingInfo } from '$lib/finn/address';
 	import {
 		enabledIsochroneModes,
@@ -43,14 +44,19 @@
 		address: GeonorgeAddress,
 		context?: { source: 'address' | 'finn'; listing?: FinnListingInfo }
 	) {
+		const source = context?.source ?? 'address';
 		selectedAddress = address;
 		selectedFinnListing = context?.listing;
 		isochroneError = undefined;
 		isochronesShown = false;
 		updateAddressQueryParam(address);
+		trackEvent({
+			name: 'address_selected',
+			properties: { source, hasMunicipality: Boolean(address.kommunenavn) }
+		});
 
-		if (context?.source === 'finn') {
-			handleShowIsochrones('walk');
+		if (source === 'finn') {
+			handleShowIsochrones('walk', 'auto');
 		}
 	}
 
@@ -60,7 +66,8 @@
 		selectedAddress = createMapPointSelection(point);
 		selectedFinnListing = undefined;
 		isochroneError = undefined;
-		handleShowIsochrones(nextMode);
+		trackEvent({ name: 'map_point_selected', properties: { source: 'map' } });
+		handleShowIsochrones(nextMode, 'map');
 		updatePointQueryParam(point);
 	}
 
@@ -81,6 +88,7 @@
 			isochroneError = undefined;
 			isochronesShown = false;
 			updatePointQueryParam(point, 'replace');
+			trackEvent({ name: 'map_point_selected', properties: { source: 'url' } });
 			return;
 		}
 
@@ -101,6 +109,10 @@
 			const [address] = response.adresser;
 			if (!address) {
 				clearSelectedLocation();
+				trackEvent({
+					name: 'address_search_failed',
+					properties: { source: 'url', errorCode: 'GEONORGE_NO_RESULTS' }
+				});
 				return;
 			}
 
@@ -109,8 +121,19 @@
 			isochroneError = undefined;
 			isochronesShown = false;
 			updateAddressQueryParam(address, 'replace');
+			trackEvent({
+				name: 'address_selected',
+				properties: { source: 'url', hasMunicipality: Boolean(address.kommunenavn) }
+			});
 		} catch (error) {
 			console.error('Could not load address from URL', error);
+			trackEvent({
+				name: 'address_search_failed',
+				properties: {
+					source: 'url',
+					errorCode: analyticsErrorCode(error, 'GEONORGE_LOOKUP_FAILED')
+				}
+			});
 		}
 	}
 
@@ -184,10 +207,14 @@
 		return [addressText, place, municipality].filter(Boolean).join(', ');
 	}
 
-	function handleShowIsochrones(mode: IsochroneModeId) {
+	function handleShowIsochrones(
+		mode: IsochroneModeId,
+		source: 'button' | 'auto' | 'map' = 'button'
+	) {
 		isochroneMode = mode;
 		isochronesShown = true;
 		triggerKey++;
+		trackEvent({ name: 'isochrone_requested', properties: { mode, source } });
 	}
 
 	const activeModeConfig = $derived(ISOCHRONE_MODES_BY_ID[isochroneMode]);
@@ -200,6 +227,10 @@
 			: [...visible, minutes].sort((a, b) => a - b);
 
 		visibleBandsByMode = { ...visibleBandsByMode, [isochroneMode]: next };
+		trackEvent({
+			name: 'isochrone_band_toggled',
+			properties: { mode: isochroneMode, minutes, visible: next.includes(minutes) }
+		});
 	}
 
 	function isBandVisible(minutes: number) {

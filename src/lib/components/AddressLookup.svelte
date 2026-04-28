@@ -4,6 +4,7 @@
 		type GeonorgeAddress,
 		type GeonorgeAddressSearchMetadata
 	} from '$lib/geonorge/address';
+	import { analyticsErrorCode, bucketCount, trackEvent } from '$lib/analytics';
 	import { isFinnAddressInput } from '$lib/finn/address';
 	import type { FinnListingInfo } from '$lib/finn/address';
 
@@ -110,6 +111,15 @@
 
 				addresses = response.adresser;
 				metadata = response.metadata;
+				trackEvent({
+					name: 'address_search_completed',
+					properties: {
+						source: 'address',
+						resultBucket: bucketCount(
+							response.metadata?.totaltAntallTreff ?? response.adresser.length
+						)
+					}
+				});
 			} catch (error) {
 				if (error instanceof DOMException && error.name === 'AbortError') {
 					return;
@@ -118,6 +128,13 @@
 				addresses = [];
 				metadata = undefined;
 				errorMessage = 'Kunne ikke hente adresser akkurat nå.';
+				trackEvent({
+					name: 'address_search_failed',
+					properties: {
+						source: 'address',
+						errorCode: analyticsErrorCode(error, 'GEONORGE_LOOKUP_FAILED')
+					}
+				});
 			} finally {
 				if (!controller.signal.aborted) {
 					loading = false;
@@ -163,6 +180,7 @@
 				throw new Error(payload.error ?? 'Kunne ikke hente adresse fra Finn-annonsen.');
 			}
 
+			trackEvent({ name: 'finn_lookup_completed', properties: { result: 'success' } });
 			selectAddress(payload.address, 'finn', payload.listing);
 		} catch (error) {
 			if (error instanceof DOMException && error.name === 'AbortError') {
@@ -173,6 +191,13 @@
 			metadata = undefined;
 			errorMessage =
 				error instanceof Error ? error.message : 'Kunne ikke hente adresse fra Finn-annonsen.';
+			trackEvent({
+				name: 'finn_lookup_completed',
+				properties: {
+					result: 'failure',
+					errorCode: analyticsErrorCode(error, 'FINN_LOOKUP_FAILED')
+				}
+			});
 		} finally {
 			if (!signal.aborted) {
 				finnLookupLoading = false;
