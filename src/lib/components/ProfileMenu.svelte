@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '../../convex/_generated/api';
+	import { analyticsErrorCode, trackEvent } from '$lib/analytics';
 	import { useAuth, type AuthFlow } from '$lib/auth/convex-auth.svelte';
 
 	const auth = useAuth();
@@ -29,18 +30,35 @@
 				flow,
 				...(flow === 'signUp' ? { name } : {})
 			});
+			trackEvent({ name: 'auth_completed', properties: { flow, result: 'success' } });
 			password = '';
 			isOpen = false;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Kunne ikke logge inn.';
+			trackEvent({
+				name: 'auth_completed',
+				properties: { flow, result: 'failure', errorCode: analyticsErrorCode(err, 'AUTH_FAILED') }
+			});
 		} finally {
 			isSubmitting = false;
 		}
 	}
 
 	async function handleSignOut() {
-		await auth.signOut();
-		isOpen = false;
+		try {
+			await auth.signOut();
+			trackEvent({ name: 'auth_completed', properties: { flow: 'signOut', result: 'success' } });
+			isOpen = false;
+		} catch (err) {
+			trackEvent({
+				name: 'auth_completed',
+				properties: {
+					flow: 'signOut',
+					result: 'failure',
+					errorCode: analyticsErrorCode(err, 'AUTH_FAILED')
+				}
+			});
+		}
 	}
 
 	function getInitials(value: string) {

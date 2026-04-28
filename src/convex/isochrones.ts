@@ -93,6 +93,7 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: Tar
 	const values = ranges.map((minute) => minute * 60);
 	const frame = nextTuesdayMorning();
 	const logContext = summarizeRequest({ appMode, preset, minutes: ranges, frame });
+	const startedAt = Date.now();
 	const payload = {
 		sources: [
 			{
@@ -128,7 +129,8 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: Tar
 		ok: res.ok,
 		appMode,
 		providerMode: describePreset(preset).providerMode,
-		travelTypes: describePreset(preset).travelTypes
+		travelTypes: describePreset(preset).travelTypes,
+		durationMs: Date.now() - startedAt
 	});
 
 	if (!res.ok) {
@@ -136,7 +138,8 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: Tar
 		logProviderFailure(code, {
 			status: res.status,
 			bodySnippet: await readSanitizedBodySnippet(res),
-			context: logContext
+			context: logContext,
+			durationMs: Date.now() - startedAt
 		});
 		throw stableProviderError(code);
 	}
@@ -144,11 +147,20 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: Tar
 	try {
 		const raw = await res.json();
 		const geojson = raw && typeof raw === 'object' && 'data' in raw ? raw.data : raw;
-		return normalizeTargomoGeojson(geojson, ranges);
+		const normalized = normalizeTargomoGeojson(geojson, ranges);
+		console.log('[isochrones.getIsochrone] completed', {
+			provider: 'Targomo',
+			result: 'success',
+			appMode,
+			featureCount: normalized.features.length,
+			durationMs: Date.now() - startedAt
+		});
+		return normalized;
 	} catch (error) {
 		logProviderFailure('TARGOMO_ISOCHRONE_FAILED', {
 			error,
-			context: { ...logContext, phase: 'parse' }
+			context: { ...logContext, phase: 'parse' },
+			durationMs: Date.now() - startedAt
 		});
 		throw stableProviderError('TARGOMO_ISOCHRONE_FAILED');
 	}
@@ -387,6 +399,7 @@ function logProviderFailure(
 		bodySnippet?: string;
 		error?: unknown;
 		context?: Record<string, unknown>;
+		durationMs?: number;
 	}
 ) {
 	const error = details.error instanceof Error ? details.error.message : details.error;
@@ -396,6 +409,7 @@ function logProviderFailure(
 		status: details.status,
 		bodySnippet: details.bodySnippet,
 		error,
-		context: details.context
+		context: details.context,
+		durationMs: details.durationMs
 	});
 }

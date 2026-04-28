@@ -6,6 +6,7 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { difference, featureCollection } from '@turf/turf';
 	import { api } from '../../convex/_generated/api';
+	import { analyticsErrorCode, trackEvent } from '$lib/analytics';
 	import type { GeonorgeAddress, GeonorgePoint } from '$lib/geonorge/address';
 	import {
 		ISOCHRONE_MODES_BY_ID,
@@ -190,6 +191,10 @@
 
 			loadedIsochroneKey = requestKey;
 			renderIsochrone({ moveCamera: true });
+			trackEvent({
+				name: 'isochrone_completed',
+				properties: { mode: currentMode, result: 'success' }
+			});
 		} catch (err) {
 			if (activeRequestKey !== requestKey) return;
 
@@ -200,6 +205,14 @@
 			loadedIsochroneKey = '';
 			clearIsochroneLayers();
 			error = errorMessageForMode(ISOCHRONE_MODES_BY_ID[mode], err);
+			trackEvent({
+				name: 'isochrone_completed',
+				properties: {
+					mode,
+					result: 'failure',
+					errorCode: analyticsErrorCode(err, 'TARGOMO_ISOCHRONE_FAILED')
+				}
+			});
 		} finally {
 			if (activeRequestKey === requestKey) {
 				isLoading = false;
@@ -291,6 +304,14 @@
 			return await loadModeIsochrone(config, lat, lon);
 		} catch (err) {
 			console.warn('Reference isochrone failed', { mode: config.id, error: String(err) });
+			trackEvent({
+				name: 'isochrone_completed',
+				properties: {
+					mode: config.id,
+					result: 'failure',
+					errorCode: analyticsErrorCode(err, 'TARGOMO_ISOCHRONE_FAILED')
+				}
+			});
 			return null;
 		}
 	}
