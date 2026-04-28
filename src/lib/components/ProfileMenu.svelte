@@ -18,6 +18,7 @@
 	const currentUser = $derived(profile.data);
 	const signedInUser = $derived(auth.isAuthenticated ? currentUser : null);
 	const initials = $derived(getInitials(signedInUser?.name ?? signedInUser?.email ?? 'Profil'));
+	const isProfileLoading = $derived(auth.isAuthenticated && profile.isLoading);
 
 	async function handleSubmit() {
 		error = undefined;
@@ -109,7 +110,7 @@
 	>
 		<span class="avatar">{auth.isAuthenticated ? initials : '+'}</span>
 		<span class="trigger-text">
-			{#if auth.isLoading || profile.isLoading}
+			{#if auth.isLoading || isProfileLoading}
 				Laster
 			{:else if signedInUser}
 				{signedInUser.name ?? signedInUser.email}

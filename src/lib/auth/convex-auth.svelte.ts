@@ -1,5 +1,5 @@
 import { getContext, setContext } from 'svelte';
-import type { ConvexClient } from 'convex/browser';
+import { ConvexHttpClient, type ConvexClient } from 'convex/browser';
 
 const AUTH_CONTEXT_KEY = '$$_moveScoreAuth';
 const JWT_STORAGE_KEY = '__convexAuthJWT';
@@ -18,6 +18,7 @@ export type AuthFlow = 'signIn' | 'signUp';
 
 export class ConvexAuthState {
 	#client: ConvexClient;
+	#authClient: ConvexHttpClient;
 	#storageNamespace: string;
 
 	isLoading = $state(true);
@@ -26,6 +27,7 @@ export class ConvexAuthState {
 
 	constructor(client: ConvexClient, storageNamespace: string) {
 		this.#client = client;
+		this.#authClient = new ConvexHttpClient(storageNamespace);
 		this.#storageNamespace = storageNamespace;
 	}
 
@@ -43,7 +45,7 @@ export class ConvexAuthState {
 	}
 
 	async signIn(provider: string, params: Record<string, string>) {
-		const result = (await this.#client.action(
+		const result = (await this.#authClient.action(
 			'auth:signIn' as never,
 			{
 				provider,
@@ -100,7 +102,7 @@ export class ConvexAuthState {
 			return null;
 		}
 
-		const result = (await this.#client.action(
+		const result = (await this.#authClient.action(
 			'auth:signIn' as never,
 			{
 				refreshToken
