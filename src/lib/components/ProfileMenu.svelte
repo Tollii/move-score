@@ -15,7 +15,8 @@
 	let isSubmitting = $state(false);
 
 	const currentUser = $derived(profile.data);
-	const initials = $derived(getInitials(currentUser?.name ?? currentUser?.email ?? 'Profil'));
+	const signedInUser = $derived(auth.isAuthenticated ? currentUser : null);
+	const initials = $derived(getInitials(signedInUser?.name ?? signedInUser?.email ?? 'Profil'));
 
 	async function handleSubmit() {
 		error = undefined;
@@ -64,8 +65,8 @@
 		<span class="trigger-text">
 			{#if auth.isLoading || profile.isLoading}
 				Laster
-			{:else if currentUser}
-				{currentUser.name ?? currentUser.email}
+			{:else if signedInUser}
+				{signedInUser.name ?? signedInUser.email}
 			{:else}
 				Profil
 			{/if}
@@ -74,11 +75,11 @@
 
 	{#if isOpen}
 		<div class="profile-popover">
-			{#if auth.isAuthenticated && currentUser}
+			{#if signedInUser}
 				<div class="profile-summary">
-					<div class="summary-name">{currentUser.name ?? 'Profil'}</div>
-					{#if currentUser.email}
-						<div class="summary-email">{currentUser.email}</div>
+					<div class="summary-name">{signedInUser.name ?? 'Profil'}</div>
+					{#if signedInUser.email}
+						<div class="summary-email">{signedInUser.email}</div>
 					{/if}
 				</div>
 				<button type="button" class="secondary-button" onclick={handleSignOut}>Logg ut</button>
