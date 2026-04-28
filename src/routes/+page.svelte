@@ -8,6 +8,7 @@
 		type GeonorgePoint
 	} from '$lib';
 	import AddressCard from '$lib/components/AddressCard.svelte';
+	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
 	import type { FinnListingInfo } from '$lib/finn/address';
 	import {
 		enabledIsochroneModes,
@@ -234,6 +235,8 @@
 		bind:isLoading={isochroneLoading}
 		bind:error={isochroneError}
 	/>
+
+	<ProfileMenu />
 
 	<!-- Left panel -->
 	<div class="panel">

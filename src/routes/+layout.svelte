@@ -1,10 +1,11 @@
 <script lang="ts">
 	import './layout.css';
 	import { PUBLIC_CONVEX_URL } from '$env/static/public';
-	import { setupConvex } from 'convex-svelte';
+	import AuthProvider from '$lib/components/AuthProvider.svelte';
 
 	const { children } = $props();
-	setupConvex(PUBLIC_CONVEX_URL);
 </script>
 
-{@render children()}
+<AuthProvider convexUrl={PUBLIC_CONVEX_URL}>
+	{@render children()}
+</AuthProvider>
