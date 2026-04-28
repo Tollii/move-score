@@ -1,11 +1,9 @@
 <script lang="ts">
 	import ArrowSquareOut from 'phosphor-svelte/lib/ArrowSquareOut';
-	import Warning from 'phosphor-svelte/lib/Warning';
-	import * as Alert from '$lib/components/ui/alert';
 	import type { FinnListingField, FinnListingInfo } from '$lib/finn/address';
 
 	type Props = {
-		listing?: FinnListingInfo;
+		listing: FinnListingInfo;
 	};
 
 	let { listing }: Props = $props();
@@ -43,61 +41,54 @@
 	}
 </script>
 
-{#if listing}
-	{#if listing.imageUrl}
-		<img class="listing-image" src={listing.imageUrl} alt="" />
-	{/if}
-
-	{#if listing.title}
-		<h3>{listing.title}</h3>
-	{/if}
-
-	{#if highlightedFields.length}
-		<div class="highlight-grid">
-			{#each highlightedFields as field (`${field.label}-${field.value}`)}
-				<div class="highlight-cell">
-					<div class="field-label">{field.label}</div>
-					<div class="highlight-value">{field.value}</div>
-				</div>
-			{/each}
-		</div>
-	{/if}
-
-	{#if priceFields.length}
-		<section>
-			<div class="section-label">Pris</div>
-			{#each priceFields as field (`price-${field.label}`)}
-				<div class="stat-row">
-					<span class="stat-key">{field.label}</span>
-					<span class="stat-val">{field.value}</span>
-				</div>
-			{/each}
-		</section>
-	{/if}
-
-	{#if remainingKeyFields.length}
-		<section>
-			<div class="section-label">Nøkkelinfo</div>
-			{#each remainingKeyFields as field (`key-${field.label}`)}
-				<div class="stat-row">
-					<span class="stat-key">{field.label}</span>
-					<span class="stat-val">{field.value}</span>
-				</div>
-			{/each}
-		</section>
-	{/if}
-
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external Finn.no URL -->
-	<a href={listing.url} target="_blank" rel="noopener noreferrer" class="finn-link">
-		<ArrowSquareOut size={13} />
-		Se på Finn.no · {listing.finnCode}
-	</a>
-{:else}
-	<Alert.Root variant="warning" class="mb-3 text-[11.5px]">
-		<Warning size={14} />
-		<Alert.Description>Finn.no-data er ikke tilgjengelig for denne adressen</Alert.Description>
-	</Alert.Root>
+{#if listing.imageUrl}
+	<img class="listing-image" src={listing.imageUrl} alt="" />
 {/if}
+
+{#if listing.title}
+	<h3>{listing.title}</h3>
+{/if}
+
+{#if highlightedFields.length}
+	<div class="highlight-grid">
+		{#each highlightedFields as field (`${field.label}-${field.value}`)}
+			<div class="highlight-cell">
+				<div class="field-label">{field.label}</div>
+				<div class="highlight-value">{field.value}</div>
+			</div>
+		{/each}
+	</div>
+{/if}
+
+{#if priceFields.length}
+	<section>
+		<div class="section-label">Pris</div>
+		{#each priceFields as field (`price-${field.label}`)}
+			<div class="stat-row">
+				<span class="stat-key">{field.label}</span>
+				<span class="stat-val">{field.value}</span>
+			</div>
+		{/each}
+	</section>
+{/if}
+
+{#if remainingKeyFields.length}
+	<section>
+		<div class="section-label">Nøkkelinfo</div>
+		{#each remainingKeyFields as field (`key-${field.label}`)}
+			<div class="stat-row">
+				<span class="stat-key">{field.label}</span>
+				<span class="stat-val">{field.value}</span>
+			</div>
+		{/each}
+	</section>
+{/if}
+
+<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external Finn.no URL -->
+<a href={listing.url} target="_blank" rel="noopener noreferrer" class="finn-link">
+	<ArrowSquareOut size={13} />
+	Se på Finn.no · {listing.finnCode}
+</a>
 
 <style>
 	.listing-image {
