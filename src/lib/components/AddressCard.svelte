@@ -1,21 +1,11 @@
 <script lang="ts">
-	import ScoreCircle from './ScoreCircle.svelte';
-	import EiendomSection from './EiendomSection.svelte';
 	import FinnSection from './FinnSection.svelte';
-	import KollektivtSection from './KollektivtSection.svelte';
-	import NabolagSection from './NabolagSection.svelte';
-	import ScoreSection from './ScoreSection.svelte';
-	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import PersonSimpleWalk from 'phosphor-svelte/lib/PersonSimpleWalk';
 	import Bus from 'phosphor-svelte/lib/Bus';
 	import Car from 'phosphor-svelte/lib/Car';
 	import Bicycle from 'phosphor-svelte/lib/Bicycle';
-	import type { PropertyData } from './EiendomSection.svelte';
-	import type { TransitStop } from './KollektivtSection.svelte';
-	import type { Amenity } from './NabolagSection.svelte';
-	import type { Scores } from './ScoreSection.svelte';
 	import type { GeonorgeAddress } from '$lib/geonorge/address';
 	import type { FinnListingInfo } from '$lib/finn/address';
 	import { enabledIsochroneModes, type IsochroneModeId } from '$lib/isochrones/modes';
@@ -25,12 +15,7 @@
 		isochronesShown: boolean;
 		activeMode?: IsochroneModeId;
 		isLoading?: boolean;
-		property?: PropertyData;
 		finnListing?: FinnListingInfo;
-		transit?: TransitStop[];
-		amenities?: Amenity[];
-		scores?: Scores;
-		overallScore?: number;
 		onShowIsochrones: (mode: IsochroneModeId) => void;
 	};
 
@@ -39,25 +24,10 @@
 		isochronesShown,
 		activeMode = 'walk',
 		isLoading = false,
-		property,
 		finnListing,
-		transit,
-		amenities,
-		scores,
-		overallScore,
 		onShowIsochrones
 	}: Props = $props();
 
-	const tabs = $derived([
-		...(finnListing ? [{ id: 'finn', label: 'Finn.no' }] : []),
-		{ id: 'eiendom', label: 'Eiendom' },
-		{ id: 'kollektiv', label: 'Kollektivt' },
-		{ id: 'nabolag', label: 'Nabolag' },
-		{ id: 'score', label: 'Score' }
-	]);
-
-	let activeTab = $state('eiendom');
-	let scrollEl = $state<HTMLDivElement | undefined>();
 	const addressTitle = $derived(
 		address.adressetekst ?? address.adressetekstutenadressetilleggsnavn ?? 'Valgt punkt på kartet'
 	);
@@ -69,16 +39,6 @@
 		cycling: Bicycle,
 		cyclingTransit: Bicycle
 	} satisfies Record<IsochroneModeId, typeof PersonSimpleWalk>;
-
-	$effect(() => {
-		void address;
-		activeTab = finnListing ? 'finn' : 'eiendom';
-	});
-
-	$effect(() => {
-		void activeTab;
-		if (scrollEl) scrollEl.scrollTop = 0;
-	});
 
 	function formatAddressSubtitle(address: GeonorgeAddress) {
 		const place = [address.postnummer, address.poststed].filter(Boolean).join(' ');
@@ -98,20 +58,15 @@
 <div class="card" style="margin-top: 8px; overflow: hidden;">
 	<!-- Address header -->
 	<div class="address-header">
-		<div style="display: flex; align-items: flex-start; gap: 10px;">
-			<div style="flex: 1;">
-				<div class="lbl">Valgt sted</div>
-				<div class="address-main">{addressTitle}</div>
-				{#if addressSubtitle}
-					<div class="address-sub">{addressSubtitle}</div>
-				{/if}
-			</div>
-			<ScoreCircle score={overallScore ?? null} size={50} />
-		</div>
+		<div class="lbl">Valgt sted</div>
+		<div class="address-main">{addressTitle}</div>
+		{#if addressSubtitle}
+			<div class="address-sub">{addressSubtitle}</div>
+		{/if}
 	</div>
 
-	<!-- CTA -->
-	<div class="walk-section" class:no-border={!isochronesShown}>
+	<!-- Mode buttons -->
+	<div class="walk-section" class:no-border={!finnListing}>
 		<div class="mode-grid">
 			{#each enabledIsochroneModes as mode (mode.id)}
 				{@const Icon = modeIcons[mode.id]}
@@ -143,41 +98,11 @@
 		</div>
 	</div>
 
-	<!-- Dashboard tabs — only shown after isochrones are rendered -->
-	{#if isochronesShown}
-		<Tabs.Root bind:value={activeTab} class="flex flex-col">
-			<div class="px-3 pt-2.5">
-				<Tabs.List class="w-full">
-					{#each tabs as tab (tab.id)}
-						<Tabs.Trigger value={tab.id} class="flex-1 text-[11px]">
-							{tab.label}
-						</Tabs.Trigger>
-					{/each}
-				</Tabs.List>
-			</div>
-
-			<div
-				bind:this={scrollEl}
-				class="max-h-[340px] overflow-y-auto px-4 pt-3 pb-4"
-				style="scrollbar-width: thin; scrollbar-color: #e5e4de transparent;"
-			>
-				<Tabs.Content value="finn">
-					<FinnSection listing={finnListing} />
-				</Tabs.Content>
-				<Tabs.Content value="eiendom">
-					<EiendomSection {property} />
-				</Tabs.Content>
-				<Tabs.Content value="kollektiv">
-					<KollektivtSection {transit} />
-				</Tabs.Content>
-				<Tabs.Content value="nabolag">
-					<NabolagSection {amenities} />
-				</Tabs.Content>
-				<Tabs.Content value="score">
-					<ScoreSection {scores} overall={overallScore} />
-				</Tabs.Content>
-			</div>
-		</Tabs.Root>
+	<!-- Finn.no listing details -->
+	{#if finnListing}
+		<div class="finn-section">
+			<FinnSection listing={finnListing} />
+		</div>
 	{/if}
 </div>
 
@@ -236,5 +161,8 @@
 		align-items: center;
 		gap: 1px;
 		flex-shrink: 0;
+	}
+	.finn-section {
+		padding: 14px 16px 16px;
 	}
 </style>

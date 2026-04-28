@@ -268,11 +268,7 @@
 				{#if !selectedAddress}
 					<div class="lbl">Adresse</div>
 				{/if}
-				{#key selectedAddress
-						? selectedAddress.representasjonspunkt
-							? `${selectedAddress.representasjonspunkt.lat},${selectedAddress.representasjonspunkt.lon}`
-							: formatAddress(selectedAddress)
-						: ''}
+				{#key selectedAddress ? (selectedAddress.representasjonspunkt ? `${selectedAddress.representasjonspunkt.lat},${selectedAddress.representasjonspunkt.lon}` : formatAddress(selectedAddress)) : ''}
 					<AddressLookup
 						defaultQuery={selectedAddress ? formatAddress(selectedAddress) : ''}
 						onSelect={handleAddressSelect}
