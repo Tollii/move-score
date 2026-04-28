@@ -3,9 +3,10 @@
 	import { onMount, untrack } from 'svelte';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type maplibregl from 'maplibre-gl';
-	import { useConvexClient } from 'convex-svelte';
+	import { ConvexHttpClient } from 'convex/browser';
 	import { difference, featureCollection } from '@turf/turf';
 	import { api } from '../../convex/_generated/api';
+	import { PUBLIC_CONVEX_URL } from '$env/static/public';
 	import { analyticsErrorCode, trackEvent } from '$lib/analytics';
 	import type { GeonorgeAddress, GeonorgePoint } from '$lib/geonorge/address';
 	import {
@@ -65,7 +66,7 @@
 	let renderedIsochroneLayerIds: string[] = [];
 	let lastTriggerKey = 0;
 
-	const client = useConvexClient();
+	const isochroneClient = new ConvexHttpClient(PUBLIC_CONVEX_URL);
 
 	onMount(() => {
 		let destroyed = false;
@@ -150,18 +151,20 @@
 	});
 
 	function showIsochrone() {
-		if (!origin) {
+		const point = selectedAddress?.representasjonspunkt;
+		if (!point) {
 			return;
 		}
 
-		const requestKey = `${selectedOriginKey}:${mode}`;
+		const originKey = `${point.lat}:${point.lon}`;
+		const requestKey = `${originKey}:${mode}`;
 		if (renderedIsochrone && loadedIsochroneKey === requestKey) {
 			renderIsochrone({ moveCamera: true });
 			return;
 		}
 
 		activeRequestKey = requestKey;
-		void loadIsochrone(origin.lat, origin.lon, requestKey);
+		void loadIsochrone(point.lat, point.lon, requestKey);
 	}
 
 	async function loadIsochrone(lat: number, lon: number, requestKey: string) {
@@ -292,7 +295,7 @@
 	}
 
 	function loadModeIsochrone(config: IsochroneModeConfig, lat: number, lon: number) {
-		return client.action(api.isochrones.getIsochrone, {
+		return isochroneClient.action(api.isochrones.getIsochrone, {
 			lat,
 			lon,
 			mode: config.id

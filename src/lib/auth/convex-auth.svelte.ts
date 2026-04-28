@@ -75,7 +75,13 @@ export class ConvexAuthState {
 		this.#client.setAuth(
 			async ({ forceRefreshToken }) => {
 				if (forceRefreshToken) {
-					return await this.#refreshToken();
+					try {
+						return await this.#refreshToken();
+					} catch (err) {
+						console.warn('Could not refresh Convex auth token; clearing local session.', err);
+						this.#setTokens(null);
+						return null;
+					}
 				}
 
 				return this.token;
