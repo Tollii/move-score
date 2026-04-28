@@ -64,7 +64,7 @@
 {#if detailFields.length}
 	<section>
 		<div class="section-label">Detaljer</div>
-		{#each detailFields as field (`detail-${field.label}`)}
+		{#each detailFields as field, i (`detail-${i}-${field.label}`)}
 			<div class="stat-row">
 				<span class="stat-key">{field.label}</span>
 				<span class="stat-val">{field.value}</span>
