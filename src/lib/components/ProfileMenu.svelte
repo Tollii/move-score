@@ -34,7 +34,8 @@
 			password = '';
 			isOpen = false;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Kunne ikke logge inn.';
+			console.error('Profile authentication failed', err);
+			error = getFriendlyAuthError(flow, err);
 			trackEvent({
 				name: 'auth_completed',
 				properties: { flow, result: 'failure', errorCode: analyticsErrorCode(err, 'AUTH_FAILED') }
@@ -68,6 +69,33 @@
 			.filter(Boolean);
 
 		return (parts[0]?.[0] ?? 'P').toUpperCase() + (parts[1]?.[0] ?? '').toUpperCase();
+	}
+
+	function getFriendlyAuthError(currentFlow: AuthFlow, err: unknown) {
+		const message = err instanceof Error ? err.message : String(err);
+		const normalized = message.toLowerCase();
+
+		if (normalized.includes('invalid') || normalized.includes('credential')) {
+			return currentFlow === 'signIn'
+				? 'E-post eller passord er feil.'
+				: 'Kunne ikke opprette profil med disse opplysningene.';
+		}
+
+		if (normalized.includes('already') || normalized.includes('exist')) {
+			return 'Det finnes allerede en profil med denne e-postadressen.';
+		}
+
+		if (
+			normalized.includes('network') ||
+			normalized.includes('fetch') ||
+			normalized.includes('failed to fetch')
+		) {
+			return 'Vi fikk ikke kontakt med serveren. Prøv igjen om litt.';
+		}
+
+		return currentFlow === 'signIn'
+			? 'Innloggingen mislyktes. Sjekk opplysningene og prøv igjen.'
+			: 'Profilen kunne ikke opprettes akkurat nå. Prøv igjen om litt.';
 	}
 </script>
 
