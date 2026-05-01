@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as featureFlags from "../featureFlags.js";
 import type * as http from "../http.js";
 import type * as isochrones from "../isochrones.js";
+import type * as personalPois from "../personalPois.js";
 import type * as profile from "../profile.js";
 
 import type {
@@ -25,6 +26,7 @@ declare const fullApi: ApiFromModules<{
   featureFlags: typeof featureFlags;
   http: typeof http;
   isochrones: typeof isochrones;
+  personalPois: typeof personalPois;
   profile: typeof profile;
 }>;
 

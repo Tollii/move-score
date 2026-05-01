@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { useQuery } from 'convex-svelte';
+	import { api } from '../convex/_generated/api';
 	import {
 		AddressLookup,
 		MoveScoreMap,
@@ -8,8 +10,10 @@
 		type GeonorgePoint
 	} from '$lib';
 	import AddressCard from '$lib/components/AddressCard.svelte';
+	import PersonalPois from '$lib/components/PersonalPois.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
 	import { analyticsErrorCode, trackEvent } from '$lib/analytics';
+	import { useAuth } from '$lib/auth/convex-auth.svelte';
 	import type { FinnListingInfo } from '$lib/finn/address';
 	import {
 		enabledIsochroneModes,
@@ -21,6 +25,11 @@
 	const LAT_QUERY_PARAM = 'lat';
 	const LON_QUERY_PARAM = 'lon';
 	const MAP_POINT_LABEL = 'Valgt punkt på kartet';
+
+	const auth = useAuth();
+	const personalPoisQuery = useQuery(api.personalPois.list, () =>
+		auth.isAuthenticated ? {} : 'skip'
+	);
 
 	let selectedAddress = $state<GeonorgeAddress | undefined>();
 	let selectedFinnListing = $state<FinnListingInfo | undefined>();
@@ -254,6 +263,8 @@
 
 	const activeModeConfig = $derived(ISOCHRONE_MODES_BY_ID[isochroneMode]);
 	const visibleBandMinutes = $derived(visibleBandsByMode[isochroneMode]);
+	const personalPois = $derived(auth.isAuthenticated ? (personalPoisQuery.data ?? []) : []);
+	const personalPoisLoading = $derived(auth.isAuthenticated && personalPoisQuery.isLoading);
 
 	function toggleBand(minutes: number) {
 		const visible = visibleBandsByMode[isochroneMode];
@@ -300,6 +311,7 @@
 		mode={isochroneMode}
 		{visibleBandMinutes}
 		{mobileDetailsOpen}
+		{personalPois}
 		onSelectPoint={handleMapPointSelect}
 		bind:isLoading={isochroneLoading}
 		bind:error={isochroneError}
@@ -353,6 +365,14 @@
 				<p class="error-msg">{isochroneError}</p>
 			{/if}
 		</div>
+
+		<PersonalPois
+			pois={personalPois}
+			isAuthenticated={auth.isAuthenticated}
+			isAuthLoading={auth.isLoading}
+			isLoading={personalPoisLoading}
+			{selectedAddress}
+		/>
 
 		{#if selectedAddress || isochronesShown}
 			<button

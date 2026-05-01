@@ -9,6 +9,8 @@
 	import type { FinnListingInfo } from '$lib/finn/address';
 
 	type Props = {
+		id?: string;
+		label?: string;
 		defaultQuery?: string;
 		placeholder?: string;
 		minLength?: number;
@@ -23,6 +25,8 @@
 	};
 
 	let {
+		id = 'address-lookup',
+		label = 'Adresse',
 		defaultQuery = '',
 		placeholder = 'Søk etter adresse',
 		minLength = 2,
@@ -247,11 +251,11 @@
 <section class="w-full">
 	<label
 		class="block text-[10px] font-bold tracking-[0.22em] text-[var(--color-paper-muted)] uppercase"
-		for="address-lookup">Adresse</label
+		for={id}>{label}</label
 	>
 	<div class="relative mt-2">
 		<input
-			id="address-lookup"
+			{id}
 			type="search"
 			class="w-full rounded-[var(--radius-lg)] border border-white/10 bg-[var(--color-paper)] px-4 py-3.5 text-[0.9375rem] font-semibold text-[var(--color-ink)] shadow-[var(--shadow-small)] transition outline-none placeholder:font-normal placeholder:text-[var(--color-ink-soft)]/45 focus:border-[var(--color-accent)]/60 focus:ring-3 focus:ring-[var(--color-accent)]/20"
 			{placeholder}
