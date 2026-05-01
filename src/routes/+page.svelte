@@ -30,6 +30,7 @@
 	let isochronesShown = $state(false);
 	let isochroneMode = $state<IsochroneModeId>('walk');
 	let visibleBandsByMode = $state(createVisibleBandsByMode());
+	let mobileDetailsOpen = $state(false);
 
 	onMount(() => {
 		void selectAddressFromUrl();
@@ -49,6 +50,7 @@
 		selectedFinnListing = context?.listing;
 		isochroneError = undefined;
 		isochronesShown = false;
+		mobileDetailsOpen = true;
 		updateAddressQueryParam(address);
 		trackEvent({
 			name: 'address_selected',
@@ -66,6 +68,7 @@
 		selectedAddress = createMapPointSelection(point);
 		selectedFinnListing = undefined;
 		isochroneError = undefined;
+		mobileDetailsOpen = true;
 		trackEvent({ name: 'map_point_selected', properties: { source: 'map' } });
 		handleShowIsochrones(nextMode, 'map');
 		updatePointQueryParam(point);
@@ -100,11 +103,7 @@
 		}
 
 		try {
-			const response = await searchGeonorgeAddresses({
-				sok: queryAddress,
-				fuzzy: true,
-				treffPerSide: 1
-			});
+			const response = await findAddressFromUrlQuery(queryAddress);
 
 			const [address] = response.adresser;
 			if (!address) {
@@ -120,6 +119,7 @@
 			selectedFinnListing = undefined;
 			isochroneError = undefined;
 			isochronesShown = false;
+			mobileDetailsOpen = true;
 			updateAddressQueryParam(address, 'replace');
 			trackEvent({
 				name: 'address_selected',
@@ -135,6 +135,40 @@
 				}
 			});
 		}
+	}
+
+	async function findAddressFromUrlQuery(queryAddress: string) {
+		const cleanedQueryAddress = cleanAddressQuery(queryAddress);
+		const queries =
+			cleanedQueryAddress === queryAddress ? [queryAddress] : [queryAddress, cleanedQueryAddress];
+
+		for (const query of queries) {
+			try {
+				const response = await searchGeonorgeAddresses({
+					sok: query,
+					fuzzy: true,
+					treffPerSide: 1
+				});
+
+				if (response.adresser.length > 0 || query === queries.at(-1)) {
+					return response;
+				}
+			} catch (error) {
+				if (query === queries.at(-1)) {
+					throw error;
+				}
+			}
+		}
+
+		return { adresser: [] };
+	}
+
+	function cleanAddressQuery(queryAddress: string) {
+		return queryAddress
+			.replace(/\([^)]*\)/g, '')
+			.replace(/,/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
 	}
 
 	function updateAddressQueryParam(address: GeonorgeAddress, mode: 'push' | 'replace' = 'push') {
@@ -213,6 +247,7 @@
 	) {
 		isochroneMode = mode;
 		isochronesShown = true;
+		mobileDetailsOpen = true;
 		triggerKey++;
 		trackEvent({ name: 'isochrone_requested', properties: { mode, source } });
 	}
@@ -253,6 +288,8 @@
 </svelte:head>
 
 <main
+	class:mobile-overlay-present={selectedAddress || isochronesShown}
+	class:mobile-details-open={mobileDetailsOpen}
 	style="position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #f0efe9;"
 >
 	<!-- Map layer -->
@@ -262,6 +299,7 @@
 		{triggerKey}
 		mode={isochroneMode}
 		{visibleBandMinutes}
+		{mobileDetailsOpen}
 		onSelectPoint={handleMapPointSelect}
 		bind:isLoading={isochroneLoading}
 		bind:error={isochroneError}
@@ -272,7 +310,7 @@
 	<!-- Left panel -->
 	<div class="panel">
 		<!-- Search card -->
-		<div class="card search-card">
+		<div class="card search-card" onfocusin={() => (mobileDetailsOpen = false)}>
 			<!-- Logo -->
 			<div class="logo">
 				<svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
@@ -305,6 +343,7 @@
 				{#key selectedAddress ? (selectedAddress.representasjonspunkt ? `${selectedAddress.representasjonspunkt.lat},${selectedAddress.representasjonspunkt.lon}` : formatAddress(selectedAddress)) : ''}
 					<AddressLookup
 						defaultQuery={selectedAddress ? formatAddress(selectedAddress) : ''}
+						onQueryInput={() => (mobileDetailsOpen = false)}
 						onSelect={handleAddressSelect}
 					/>
 				{/key}
@@ -315,38 +354,59 @@
 			{/if}
 		</div>
 
-		<!-- Address + dashboard card -->
-		{#if selectedAddress}
-			<AddressCard
-				address={selectedAddress}
-				{isochronesShown}
-				finnListing={selectedFinnListing}
-				activeMode={isochroneMode}
-				isLoading={isochroneLoading}
-				onShowIsochrones={handleShowIsochrones}
-			/>
-		{/if}
+		{#if selectedAddress || isochronesShown}
+			<button
+				type="button"
+				class="card details-toggle"
+				aria-expanded={mobileDetailsOpen}
+				aria-controls="mobile-map-details"
+				onclick={() => (mobileDetailsOpen = !mobileDetailsOpen)}
+			>
+				<span class="toggle-kicker">Kartdetaljer</span>
+				<span class="toggle-action">
+					{mobileDetailsOpen ? 'Trykk her for å utforske kartet' : 'Trykk her for å vise detaljer'}
+				</span>
+			</button>
 
-		<!-- Legend -->
-		{#if isochronesShown}
-			<div class="card legend-card">
-				<div class="lbl" style="margin-bottom: 8px;">
-					{activeModeConfig.legendTitle}
-				</div>
-				{#each activeModeConfig.bands as band (band.label)}
-					<button
-						type="button"
-						class="legend-row"
-						class:muted={!isBandVisible(band.minutes)}
-						aria-pressed={isBandVisible(band.minutes)}
-						onclick={() => toggleBand(band.minutes)}
-					>
-						<div class="legend-dot" style:background={band.color}></div>
-						<span class="legend-label">
-							{band.label}
-						</span>
-					</button>
-				{/each}
+			<div
+				id="mobile-map-details"
+				class="details-stack"
+				class:mobile-collapsed={!mobileDetailsOpen}
+			>
+				<!-- Address + dashboard card -->
+				{#if selectedAddress}
+					<AddressCard
+						address={selectedAddress}
+						{isochronesShown}
+						finnListing={selectedFinnListing}
+						activeMode={isochroneMode}
+						isLoading={isochroneLoading}
+						onShowIsochrones={handleShowIsochrones}
+					/>
+				{/if}
+
+				<!-- Legend -->
+				{#if isochronesShown}
+					<div class="card legend-card">
+						<div class="lbl" style="margin-bottom: 8px;">
+							{activeModeConfig.legendTitle}
+						</div>
+						{#each activeModeConfig.bands as band (band.label)}
+							<button
+								type="button"
+								class="legend-row"
+								class:muted={!isBandVisible(band.minutes)}
+								aria-pressed={isBandVisible(band.minutes)}
+								onclick={() => toggleBand(band.minutes)}
+							>
+								<div class="legend-dot" style:background={band.color}></div>
+								<span class="legend-label">
+									{band.label}
+								</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -388,6 +448,14 @@
 
 	.search-card {
 		padding: 16px;
+	}
+
+	.details-toggle {
+		display: none;
+	}
+
+	.details-stack {
+		display: contents;
 	}
 
 	.logo {
@@ -511,5 +579,138 @@
 		border-color: #e5e4de !important;
 		border-radius: 11px !important;
 		box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1) !important;
+	}
+
+	@media (max-width: 640px) {
+		.panel {
+			inset: 12px 12px 0;
+			top: 12px;
+			left: 12px;
+			right: 12px;
+			bottom: 0;
+			z-index: 120;
+			max-height: none;
+			overflow: visible;
+			padding-bottom: 0;
+			pointer-events: none;
+		}
+
+		.card {
+			width: 100%;
+			max-width: none;
+			border-radius: 12px;
+		}
+
+		.search-card {
+			position: relative;
+			pointer-events: auto;
+			padding: 12px;
+		}
+
+		.search-card:focus-within {
+			z-index: 140;
+		}
+
+		.logo {
+			padding: 5px 9px;
+		}
+
+		.tagline h1 {
+			font-size: 16px;
+		}
+
+		.tagline p {
+			display: none;
+		}
+
+		.details-toggle {
+			position: fixed;
+			left: 12px;
+			right: 12px;
+			bottom: calc(12px + env(safe-area-inset-bottom));
+			z-index: 130;
+			display: flex;
+			width: auto;
+			min-height: 58px;
+			align-items: center;
+			justify-content: center;
+			flex-direction: column;
+			gap: 3px;
+			padding: 14px 18px 12px;
+			border: 0;
+			font-family: 'DM Sans', sans-serif;
+			color: #1a1a18;
+			cursor: pointer;
+			pointer-events: auto;
+		}
+
+		.details-toggle::before {
+			content: '';
+			position: absolute;
+			top: 8px;
+			left: 50%;
+			width: 42px;
+			height: 4px;
+			transform: translateX(-50%);
+			border-radius: 999px;
+			background: #d6d4cb;
+		}
+
+		.toggle-kicker {
+			color: #8b8a81;
+			font-size: 9px;
+			font-weight: 800;
+			text-transform: uppercase;
+			letter-spacing: 0.14em;
+		}
+
+		.toggle-action {
+			font-size: 14px;
+			font-weight: 800;
+			line-height: 1.15;
+			text-align: center;
+		}
+
+		.details-stack {
+			position: fixed;
+			left: 12px;
+			right: 12px;
+			bottom: calc(72px + env(safe-area-inset-bottom));
+			z-index: 125;
+			display: flex;
+			max-height: min(54vh, 430px);
+			flex-direction: column;
+			overflow-y: auto;
+			padding-bottom: 4px;
+			pointer-events: auto;
+			scrollbar-width: none;
+		}
+
+		.details-stack::-webkit-scrollbar {
+			display: none;
+		}
+
+		.details-stack.mobile-collapsed {
+			display: none;
+		}
+
+		.details-stack :global(.card) {
+			width: 100%;
+			border-radius: 12px;
+		}
+
+		.legend-card {
+			margin-top: 8px;
+		}
+
+		:global(.mobile-overlay-present .maplibregl-ctrl-bottom-right),
+		:global(.mobile-overlay-present .profile-menu) {
+			bottom: calc(88px + env(safe-area-inset-bottom));
+		}
+
+		:global(.mobile-overlay-present.mobile-details-open .maplibregl-ctrl-bottom-right),
+		:global(.mobile-overlay-present.mobile-details-open .profile-menu) {
+			bottom: calc(min(54vh, 430px) + 92px + env(safe-area-inset-bottom));
+		}
 	}
 </style>

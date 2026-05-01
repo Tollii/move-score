@@ -21,6 +21,7 @@
 		triggerKey?: number;
 		mode?: IsochroneModeId;
 		visibleBandMinutes?: number[];
+		mobileDetailsOpen?: boolean;
 		onSelectPoint?: (point: GeonorgePoint) => void;
 		isLoading?: boolean;
 		error?: string | undefined;
@@ -46,6 +47,7 @@
 		triggerKey = 0,
 		mode = 'walk',
 		visibleBandMinutes,
+		mobileDetailsOpen = false,
 		onSelectPoint,
 		isLoading = $bindable<boolean>(),
 		error = $bindable<string | undefined>()
@@ -139,6 +141,13 @@
 		if (key > 0 && key !== lastTriggerKey) {
 			lastTriggerKey = key;
 			untrack(showIsochrone);
+		}
+	});
+
+	$effect(() => {
+		void mobileDetailsOpen;
+		if (mapReady && origin) {
+			untrack(moveMapToOrigin);
 		}
 	});
 
@@ -336,10 +345,7 @@
 		marker?.setLngLat([origin.lon, origin.lat]).addTo(map);
 
 		const reducedMotion = globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		const padding =
-			globalThis.innerWidth >= 1024
-				? { top: 120, right: 220, bottom: 180, left: 520 }
-				: { top: 220, right: 40, bottom: 220, left: 40 };
+		const padding = mapCameraPadding();
 
 		if (reducedMotion) {
 			map.jumpTo({ center: [origin.lon, origin.lat], zoom: 14.2, padding });
@@ -353,6 +359,15 @@
 			duration: 1100,
 			essential: false
 		});
+	}
+
+	function mapCameraPadding() {
+		if (globalThis.innerWidth >= 1024) {
+			return { top: 120, right: 220, bottom: 180, left: 520 };
+		}
+
+		const bottom = mobileDetailsOpen ? Math.min(globalThis.innerHeight * 0.62, 520) : 150;
+		return { top: 180, right: 40, bottom, left: 40 };
 	}
 
 	function clearIsochroneLayers() {
