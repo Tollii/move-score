@@ -14,6 +14,7 @@
 		type IsochroneModeConfig,
 		type IsochroneModeId
 	} from '$lib/isochrones/modes';
+	import { personalPoiCategoryLabel, type PersonalPoi } from '$lib/personal-pois';
 
 	type Props = {
 		selectedAddress?: GeonorgeAddress;
@@ -22,6 +23,7 @@
 		mode?: IsochroneModeId;
 		visibleBandMinutes?: number[];
 		mobileDetailsOpen?: boolean;
+		personalPois?: PersonalPoi[];
 		onSelectPoint?: (point: GeonorgePoint) => void;
 		isLoading?: boolean;
 		error?: string | undefined;
@@ -48,6 +50,7 @@
 		mode = 'walk',
 		visibleBandMinutes,
 		mobileDetailsOpen = false,
+		personalPois = [],
 		onSelectPoint,
 		isLoading = $bindable<boolean>(),
 		error = $bindable<string | undefined>()
@@ -56,6 +59,8 @@
 	let mapEl: HTMLDivElement;
 	let map = $state<maplibregl.Map | undefined>();
 	let marker: maplibregl.Marker | undefined;
+	let MarkerConstructor: typeof maplibregl.Marker | undefined;
+	let poiMarkers: maplibregl.Marker[] = [];
 	let mapReady = $state(false);
 	let origin = $state<{ lat: number; lon: number } | null>(null);
 	let isochrone = $state<IsochroneFeatureCollection | null>(null);
@@ -88,6 +93,7 @@
 				attributionControl: false
 			});
 
+			MarkerConstructor = maplibre.default.Marker;
 			map.addControl(
 				new maplibre.default.NavigationControl({ showZoom: true, showCompass: true }),
 				'top-right'
@@ -107,6 +113,7 @@
 
 		return () => {
 			destroyed = true;
+			clearPoiMarkers();
 			map?.remove();
 		};
 	});
@@ -156,6 +163,13 @@
 		void mode;
 		if (renderedIsochrone && loadedIsochroneKey === `${selectedOriginKey}:${mode}`) {
 			untrack(() => renderIsochrone({ moveCamera: false }));
+		}
+	});
+
+	$effect(() => {
+		void personalPois;
+		if (mapReady) {
+			untrack(renderPersonalPois);
 		}
 	});
 
@@ -368,6 +382,54 @@
 
 		const bottom = mobileDetailsOpen ? Math.min(globalThis.innerHeight * 0.62, 520) : 150;
 		return { top: 180, right: 40, bottom, left: 40 };
+	}
+
+	function renderPersonalPois() {
+		const currentMap = map;
+		const Marker = MarkerConstructor;
+		if (!currentMap || !Marker) {
+			return;
+		}
+
+		clearPoiMarkers();
+		poiMarkers = personalPois.map((poi) => {
+			const element = createPoiMarkerElement(poi);
+			const marker = new Marker({ element, anchor: 'bottom' })
+				.setLngLat([poi.lon, poi.lat])
+				.addTo(currentMap);
+			return marker;
+		});
+	}
+
+	function clearPoiMarkers() {
+		for (const poiMarker of poiMarkers) {
+			poiMarker.remove();
+		}
+		poiMarkers = [];
+	}
+
+	function createPoiMarkerElement(poi: PersonalPoi) {
+		const element = document.createElement('button');
+		element.type = 'button';
+		element.className = 'personal-poi-marker';
+		element.dataset.category = poi.category;
+		element.title = `${poi.label} (${personalPoiCategoryLabel(poi.category)})`;
+		element.setAttribute('aria-label', element.title);
+		element.addEventListener('click', (event) => {
+			event.stopPropagation();
+		});
+
+		const dot = document.createElement('span');
+		dot.className = 'personal-poi-dot';
+		dot.setAttribute('aria-hidden', 'true');
+		element.append(dot);
+
+		const label = document.createElement('span');
+		label.className = 'personal-poi-label';
+		label.textContent = poi.label;
+		element.append(label);
+
+		return element;
 	}
 
 	function clearIsochroneLayers() {
@@ -583,6 +645,58 @@
 	:global(.maplibregl-ctrl-bottom-right) {
 		right: 1rem;
 		bottom: 1rem;
+	}
+
+	:global(.personal-poi-marker) {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		max-width: 150px;
+		border: 0;
+		border-radius: 999px;
+		background: #fffefc;
+		box-shadow:
+			0 4px 14px rgba(0, 0, 0, 0.18),
+			0 0 0 1px rgba(0, 0, 0, 0.08);
+		padding: 4px 8px 4px 5px;
+		color: #1a1a18;
+		font-family: 'DM Sans', sans-serif;
+		font-size: 11px;
+		font-weight: 800;
+		line-height: 1;
+		cursor: default;
+	}
+
+	:global(.personal-poi-dot) {
+		width: 10px;
+		height: 10px;
+		border: 2px solid #fffefc;
+		border-radius: 999px;
+		background: #7c3aed;
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.16);
+		flex: 0 0 auto;
+	}
+
+	:global(.personal-poi-label) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	:global(.personal-poi-marker[data-category='work'] .personal-poi-dot) {
+		background: #2563eb;
+	}
+
+	:global(.personal-poi-marker[data-category='school'] .personal-poi-dot) {
+		background: #059669;
+	}
+
+	:global(.personal-poi-marker[data-category='family'] .personal-poi-dot) {
+		background: #db2777;
+	}
+
+	:global(.personal-poi-marker[data-category='other'] .personal-poi-dot) {
+		background: #7c3aed;
 	}
 
 	@media (min-width: 1024px) {
