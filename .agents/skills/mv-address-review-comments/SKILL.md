@@ -1,11 +1,11 @@
 ---
 name: mv-address-review-comments
-description: Move Score workflow for addressing GitHub PR review comments. Use when asked to fix, address, or resolve review feedback.
+description: Move Score delegated workflow for addressing GitHub PR review comments. Use when asked to fix, address, or resolve review feedback, or when mv-ship needs actionable review findings fixed before continuing review or publication.
 ---
 
 # Move Score Address Review Comments
 
-Address actionable GitHub PR review feedback for `Tollii/move-score`.
+Address actionable GitHub PR review feedback for `Tollii/move-score`. When delegated by `mv-ship`, fix the comments, push the branch, resolve or reply to threads when possible, and hand control back for another review or publication pass.
 
 ## Project Adapter
 
@@ -25,6 +25,7 @@ Address actionable GitHub PR review feedback for `Tollii/move-score`.
 6. Commit fixes separately when practical, or group comments that require one cohesive change.
 7. Push the branch.
 8. Reply to each fixed thread with a short summary and validation result, then resolve the thread.
+9. Return unresolved threads, validation, and whether the PR is ready for another review pass.
 
 ## Reply Format
 
@@ -38,7 +39,7 @@ If validation could not be run, say why in one clause.
 
 ```markdown
 Status: addressed | partial | blocked
-Next suggested action: review | human-input | stop
+Next suggested action: review | publish | human-input | stop
 Blockers: <none or concise list>
 Threads addressed: <ids or concise list>
 Threads unresolved: <none or concise list with reason>

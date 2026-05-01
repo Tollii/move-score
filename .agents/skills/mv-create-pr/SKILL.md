@@ -1,11 +1,11 @@
 ---
 name: mv-create-pr
-description: Move Score workflow for publishing local changes and opening a GitHub pull request. Use when asked to create a PR. The description must explain what changed, why it was needed functionally, how it was achieved, validation criteria, observations, deployment previews, and caveats.
+description: Move Score delegated workflow for publishing local changes and opening a GitHub pull request. Use when asked to create a PR or when mv-ship reaches the publication stage. The PR description must explain what changed, why it was needed functionally, how it was achieved, validation criteria, observations, deployment previews, and caveats.
 ---
 
 # Move Score Create PR
 
-Publish a branch and open a GitHub pull request with enough context for review, Vercel preview deployment, and Convex preview deployment.
+Publish a branch and open a GitHub pull request with enough context for review, Vercel preview deployment, and Convex preview deployment. When delegated by `mv-ship`, do the publication work directly and return the PR URL; do not ask the user or orchestrator whether to publish unless a real blocker exists.
 
 ## Project Adapter
 
@@ -27,6 +27,16 @@ Publish a branch and open a GitHub pull request with enough context for review, 
 3. Run or summarize validation expected for this project. If validation is not run, state why in the PR body.
 4. Push the branch to `origin`.
 5. Open the GitHub PR with a structured body.
+6. Return the PR URL, branch, validation, and preview expectations to the orchestrator.
+
+## Delegated Mode
+
+When called by `mv-ship`:
+
+- Treat publication as already authorized unless the orchestrator explicitly says local-only or no-PR.
+- Do not stop after summarizing uncommitted changes. Commit intended changes, push, and open the PR.
+- Do not include unrelated user changes. If unrelated changes prevent a clean commit, report the blocker with exact file paths.
+- Prefer a draft PR only when the orchestrator or user requested draft status, validation is incomplete in a way reviewers must know up front, or the change is intentionally not ready for merge.
 
 ## PR Body
 
@@ -72,7 +82,7 @@ End with a short machine-readable handoff for the orchestrator:
 
 ```markdown
 Status: published | blocked
-Next suggested action: review | human-input | stop
+Next suggested action: monitor-ci | address-comments | human-input | stop
 Blockers: <none or concise list>
 Pull request: <URL or identifier>
 Branch: <branch name>
@@ -80,7 +90,7 @@ Validation: <commands run and results>
 Caveats: <none or concise list>
 ```
 
-Do not invoke other workflow skills from this skill. Report what is needed next and let the orchestrator decide.
+Do not invoke other workflow skills from this skill. Complete publication, then report what is needed next and let the orchestrator decide whether to monitor CI, address comments, or stop.
 
 ## Move Score Adapter
 

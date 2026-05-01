@@ -1,11 +1,11 @@
 ---
 name: mv-pr-review
-description: Move Score general-purpose pull request or change review workflow. Use when asked to review a GitHub PR, diff, branch, patch, or pending code changes for correctness, requirement fit, architecture fit, maintainability, tests, conciseness, modern language features, and common regressions. For security-specific PR review, use mv-security-pr-review instead.
+description: Move Score delegated general-purpose pull request or change review workflow. Use when asked to review a GitHub PR, diff, branch, patch, or pending code changes for correctness, requirement fit, architecture fit, maintainability, tests, conciseness, modern language features, and common regressions. In mv-ship, run after implementation and before PR publication. For security-specific PR review, use mv-security-pr-review instead.
 ---
 
 # Move Score PR Review
 
-Review a proposed GitHub PR or local diff and post only actionable inline findings. This is the general-purpose review lane; use a separate security-focused review when the request is specifically about vulnerabilities or threat modeling.
+Review a proposed GitHub PR or local diff and post only actionable findings. This is the general-purpose review lane; use a separate security-focused review when the request is specifically about vulnerabilities or threat modeling. When delegated by `mv-ship` before publication, review the local diff or branch and return findings to the orchestrator without requiring a GitHub PR to exist yet.
 
 ## Inputs
 
@@ -36,8 +36,9 @@ Review a proposed GitHub PR or local diff and post only actionable inline findin
    - Modern language features: safer and clearer language/library features already accepted by the project, such as explicit result types, discriminated unions, pattern matching, optional chaining, nullish coalescing, readonly types, `satisfies`, standard collection helpers, or structured error handling.
 5. If a security issue is obvious while doing a general review, report it, but do not turn the review into a full security audit unless asked.
 6. Only produce findings that should block merge or materially improve maintainability. Do not nitpick formatting or personal style.
-7. Post each finding as its own inline review thread on the exact changed line or tightest possible line range.
-8. Do not post a top-level summary comment. Do not approve, request changes, or merge unless the user explicitly asks.
+7. If reviewing an existing PR, post each finding as its own inline review thread on the exact changed line or tightest possible line range.
+8. If reviewing a local diff or unpublished branch, return findings in the same substance and priority order, with file paths and line numbers, so the orchestrator can delegate fixes before publication.
+9. Do not post a top-level summary comment. Do not approve, request changes, publish, or merge unless the user explicitly asks.
 
 ## Finding Format
 
@@ -61,13 +62,13 @@ End with a short machine-readable handoff for the orchestrator:
 
 ```markdown
 Status: findings-posted | clean | blocked
-Next suggested action: address-comments | publish-ready | human-input | stop
+Next suggested action: address-comments | publish | human-input | stop
 Blockers: <none or concise list>
 Findings posted: <count and ids/links if available>
 Residual risk: <test gaps or unreviewed areas>
 ```
 
-Do not invoke other workflow skills from this skill. Report what is needed next and let the orchestrator decide.
+Do not invoke other workflow skills from this skill. Report what is needed next and let the orchestrator continue to fixes or publication.
 
 ## Move Score Adapter
 
