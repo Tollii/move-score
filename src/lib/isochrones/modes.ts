@@ -1,13 +1,5 @@
-export type IsochroneModeId = 'walk' | 'cycling' | 'driving' | 'transit' | 'cyclingTransit';
-export type TargomoTravelMode =
-	| 'walk'
-	| 'bike'
-	| 'car'
-	| 'transit'
-	| 'walktransit'
-	| 'biketransit'
-	| 'multiModal';
-export type MultiModalTravelType = 'walk' | 'bike' | 'car' | 'transit';
+export type IsochroneModeId = 'walk' | 'cycling' | 'driving' | 'transit';
+export type TravelTimeMode = 'walking' | 'cycling' | 'driving' | 'public_transport';
 
 export type IsochroneBand = {
 	minutes: number;
@@ -20,8 +12,7 @@ export type IsochroneModeConfig = {
 	label: string;
 	shortLabel: string;
 	legendTitle: string;
-	targomoMode: TargomoTravelMode;
-	travelTypes?: readonly MultiModalTravelType[];
+	travelTimeMode: TravelTimeMode;
 	referenceMode?: IsochroneModeId;
 	renderStyle: 'standard' | 'transit';
 	errorMessage: string;
@@ -29,25 +20,13 @@ export type IsochroneModeConfig = {
 	bands: IsochroneBand[];
 };
 
-export type TargomoPreset =
-	| {
-			kind: 'single';
-			targomoMode: Exclude<TargomoTravelMode, 'multiModal'>;
-			minutes: readonly number[];
-	  }
-	| {
-			kind: 'multiModal';
-			travelTypes: readonly MultiModalTravelType[];
-			minutes: readonly number[];
-	  };
-
 export const enabledIsochroneModes = [
 	{
 		id: 'walk',
 		label: 'Gangavstand',
 		shortLabel: 'Gange',
 		legendTitle: 'Gangavstand',
-		targomoMode: 'walk',
+		travelTimeMode: 'walking',
 		renderStyle: 'standard',
 		errorMessage: 'Kunne ikke hente gangavstand for valgt adresse.',
 		rateLimitMessage: 'Karttjenesten har nådd rate limit. Prøv å hente gangavstand igjen om litt.',
@@ -63,7 +42,7 @@ export const enabledIsochroneModes = [
 		label: 'Sykkel',
 		shortLabel: 'Sykkel',
 		legendTitle: 'Sykkelavstand',
-		targomoMode: 'bike',
+		travelTimeMode: 'cycling',
 		renderStyle: 'standard',
 		errorMessage: 'Kunne ikke hente sykkelavstand for valgt adresse.',
 		rateLimitMessage:
@@ -80,7 +59,7 @@ export const enabledIsochroneModes = [
 		label: 'Bil',
 		shortLabel: 'Bil',
 		legendTitle: 'Kjoretid',
-		targomoMode: 'car',
+		travelTimeMode: 'driving',
 		renderStyle: 'standard',
 		errorMessage: 'Kunne ikke hente kjoretid for valgt adresse.',
 		rateLimitMessage: 'Karttjenesten har nådd rate limit. Prøv å hente kjoretid igjen om litt.',
@@ -96,7 +75,7 @@ export const enabledIsochroneModes = [
 		label: 'Kollektivt',
 		shortLabel: 'Kollektiv',
 		legendTitle: 'Kollektivrekkevidden',
-		targomoMode: 'transit',
+		travelTimeMode: 'public_transport',
 		referenceMode: 'walk',
 		renderStyle: 'transit',
 		errorMessage: 'Kunne ikke hente kollektivrekkevidden for valgt adresse.',
@@ -107,28 +86,6 @@ export const enabledIsochroneModes = [
 			{ minutes: 15, color: '#65a30d', label: '10-15 min' },
 			{ minutes: 20, color: '#d97706', label: '15-20 min' },
 			{ minutes: 30, color: '#ea580c', label: '20-30 min' },
-			{ minutes: 45, color: '#dc2626', label: '30-45 min' },
-			{ minutes: 60, color: '#9f1239', label: '45-60 min' }
-		]
-	},
-	{
-		id: 'cyclingTransit',
-		label: 'Sykkel + kollektivt',
-		shortLabel: 'Sykkel+kol.',
-		legendTitle: 'Sykkel og kollektivt',
-		targomoMode: 'multiModal',
-		// Prefer an explicit bike->transit->bike sequence over `biketransit`, which excludes
-		// routes where bicycles are not allowed on every transit leg and produced smaller catchments.
-		travelTypes: ['bike', 'transit', 'bike'],
-		referenceMode: 'cycling',
-		renderStyle: 'transit',
-		errorMessage: 'Kunne ikke hente rekkevidde for sykkel og kollektivt for valgt adresse.',
-		rateLimitMessage:
-			'Karttjenesten har nådd rate limit. Prøv å hente sykkel og kollektivt igjen om litt.',
-		bands: [
-			{ minutes: 10, color: '#0891b2', label: '0-10 min' },
-			{ minutes: 20, color: '#4d7c0f', label: '10-20 min' },
-			{ minutes: 30, color: '#d97706', label: '20-30 min' },
 			{ minutes: 45, color: '#dc2626', label: '30-45 min' },
 			{ minutes: 60, color: '#9f1239', label: '45-60 min' }
 		]
@@ -146,37 +103,4 @@ export const ISOCHRONE_MODES_BY_ID: Record<IsochroneModeId, IsochroneModeConfig>
 
 export function isEnabledIsochroneMode(value: unknown): value is IsochroneModeId {
 	return typeof value === 'string' && value in ISOCHRONE_MODES_BY_ID;
-}
-
-export function getTargomoPreset(
-	mode: IsochroneModeConfig,
-	options: { useBiketransit?: boolean } = {}
-): TargomoPreset {
-	if (mode.id === 'cyclingTransit' && options.useBiketransit) {
-		return {
-			kind: 'single',
-			targomoMode: 'biketransit',
-			minutes: mode.bands.map((band) => band.minutes)
-		};
-	}
-
-	const minutes = mode.bands.map((band) => band.minutes);
-
-	if (mode.targomoMode === 'multiModal') {
-		if (!mode.travelTypes?.length) {
-			throw new Error(`Isochrone mode ${mode.id} is missing multimodal travel types`);
-		}
-
-		return {
-			kind: 'multiModal',
-			travelTypes: [...mode.travelTypes],
-			minutes
-		};
-	}
-
-	return {
-		kind: 'single',
-		targomoMode: mode.targomoMode,
-		minutes
-	};
 }
