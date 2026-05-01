@@ -21,6 +21,14 @@ TARGOMO_API_KEY=...
 
 Supported isochrone modes are walking, cycling, driving, public transport with walking access/egress, and cycling + public transport through Targomo. The transit UI mode uses Targomo `transit`, which already includes walking access/egress around public transport. The cycling + public transport mode uses Targomo `multiModal` with a `bike -> transit -> bike` sequence so it models mixed bike/transit travel instead of the narrower `biketransit` behavior. Credentialed smoke testing for Norway-area transit and multimodal coverage is still pending. Road modes depend on OpenStreetMap coverage; transit modes depend on Targomo regional transit/GTFS coverage and should be smoke-tested before relying on preview or production results.
 
+### Feature flags
+
+Feature flags are stored in the Convex `featureFlags` table and can be checked from either server or client code with `api.featureFlags.isEnabled`. Authenticated users can turn flags on or off with `api.featureFlags.set`.
+
+Current flags:
+
+- `isochrones.useBiketransit` switches cycling + public transport from the default `multiModal` preset to Targomo `biketransit` for comparison.
+
 ## Building
 
 To create a production version of your app:

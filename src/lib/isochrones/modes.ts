@@ -148,7 +148,18 @@ export function isEnabledIsochroneMode(value: unknown): value is IsochroneModeId
 	return typeof value === 'string' && value in ISOCHRONE_MODES_BY_ID;
 }
 
-export function getTargomoPreset(mode: IsochroneModeConfig): TargomoPreset {
+export function getTargomoPreset(
+	mode: IsochroneModeConfig,
+	options: { useBiketransit?: boolean } = {}
+): TargomoPreset {
+	if (mode.id === 'cyclingTransit' && options.useBiketransit) {
+		return {
+			kind: 'single',
+			targomoMode: 'biketransit',
+			minutes: mode.bands.map((band) => band.minutes)
+		};
+	}
+
 	const minutes = mode.bands.map((band) => band.minutes);
 
 	if (mode.targomoMode === 'multiModal') {

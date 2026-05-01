@@ -64,7 +64,7 @@
 		"@convex-dev/auth": "^0.0.91",
 		"@turf/turf": "^7.3.4",
 		"@vercel/analytics": "^2.0.1",
-		"convex": "^1.35.1",
+		"convex": "^1.37.0",
 		"convex-svelte": "^0.0.12",
 		"maplibre-gl": "^5.23.0",
 		"runed": "^0.37.1"

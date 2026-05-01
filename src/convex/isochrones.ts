@@ -7,6 +7,7 @@ import {
 	type IsochroneModeId,
 	type TargomoPreset
 } from '../lib/isochrones/modes';
+import { api } from './_generated/api';
 
 const TARGOMO_BASE = 'https://api.targomo.com/westcentraleurope/v1';
 const MAX_CONTOUR_MINUTES = 120;
@@ -62,8 +63,12 @@ export const getIsochrone = action({
 			v.literal('cyclingTransit')
 		)
 	},
-	handler: async (_ctx, args): Promise<string> => {
-		const preset = getTargomoPreset(ISOCHRONE_MODES_BY_ID[args.mode]);
+	handler: async (ctx, args): Promise<string> => {
+		const useBiketransit: boolean = await ctx.runQuery(api.featureFlags.isEnabled, {
+			name: 'isochrones.useBiketransit',
+			defaultValue: false
+		});
+		const preset = getTargomoPreset(ISOCHRONE_MODES_BY_ID[args.mode], { useBiketransit });
 		return JSON.stringify(
 			await fetchTargomoIsochrone({
 				lat: args.lat,
