@@ -482,7 +482,7 @@
 					aria-controls="address-history-panel"
 					onclick={() => (activeSearchPanel = 'history')}
 				>
-					Sist brukt
+					Sist søkt
 					{#if searchHistory.length > 0}
 						<span>{searchHistory.length}</span>
 					{/if}
@@ -516,7 +516,7 @@
 							{/each}
 						</ul>
 					{:else}
-						<p>Adresser du velger fra søk vises her.</p>
+						<p>Adressene du søker opp, dukker opp her.</p>
 					{/if}
 				</div>
 			{/if}

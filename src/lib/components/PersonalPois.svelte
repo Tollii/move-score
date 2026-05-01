@@ -149,8 +149,8 @@
 <div class="poi-card">
 	<div class="poi-header">
 		<div>
-			<div class="lbl">Personlige steder</div>
-			<h2>Mine punkter</h2>
+			<div class="lbl">Lagrede steder</div>
+			<h2>Mine steder</h2>
 		</div>
 		{#if selectedAddress?.representasjonspunkt && isAuthenticated}
 			<button type="button" class="ghost-button" onclick={useSelectedAddress}>Bruk valgt</button>
@@ -215,7 +215,7 @@
 			{#if isLoading}
 				<p class="muted-text">Laster steder.</p>
 			{:else if pois.length === 0}
-				<p class="muted-text">Ingen personlige steder ennå.</p>
+				<p class="muted-text">Ingen lagrede steder ennå.</p>
 			{:else}
 				{#each pois as poi (poi.id)}
 					<div class="poi-row">
