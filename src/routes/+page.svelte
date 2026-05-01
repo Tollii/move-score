@@ -25,6 +25,16 @@
 	const LAT_QUERY_PARAM = 'lat';
 	const LON_QUERY_PARAM = 'lon';
 	const MAP_POINT_LABEL = 'Valgt punkt på kartet';
+	const SEARCH_HISTORY_STORAGE_KEY = 'move-score:address-search-history';
+	const SEARCH_HISTORY_LIMIT = 8;
+
+	type AddressSelectionSource = 'address' | 'finn' | 'history';
+	type AddressSearchHistoryItem = {
+		key: string;
+		label: string;
+		secondaryLabel: string;
+		address: GeonorgeAddress;
+	};
 
 	const auth = useAuth();
 	const personalPoisQuery = useQuery(api.personalPois.list, () =>
@@ -40,8 +50,11 @@
 	let isochroneMode = $state<IsochroneModeId>('walk');
 	let visibleBandsByMode = $state(createVisibleBandsByMode());
 	let mobileDetailsOpen = $state(false);
+	let activeSearchPanel = $state<'search' | 'history'>('search');
+	let searchHistory = $state<AddressSearchHistoryItem[]>([]);
 
 	onMount(() => {
+		searchHistory = loadSearchHistory();
 		void selectAddressFromUrl();
 		globalThis.addEventListener('popstate', handlePopState);
 
@@ -55,20 +68,40 @@
 		context?: { source: 'address' | 'finn'; listing?: FinnListingInfo }
 	) {
 		const source = context?.source ?? 'address';
+		selectResolvedAddress(address, { source, listing: context?.listing });
+
+		if (isHistoryEligibleAddress(address)) {
+			rememberAddressSearch(address);
+		}
+
+		if (source === 'finn') {
+			handleShowIsochrones('walk', 'auto');
+		}
+	}
+
+	function handleHistorySelect(item: AddressSearchHistoryItem) {
+		selectResolvedAddress(item.address, { source: 'history' });
+		activeSearchPanel = 'search';
+	}
+
+	function selectResolvedAddress(
+		address: GeonorgeAddress,
+		context: { source: AddressSelectionSource; listing?: FinnListingInfo }
+	) {
+		const source = context.source;
 		selectedAddress = address;
-		selectedFinnListing = context?.listing;
+		selectedFinnListing = context.listing;
 		isochroneError = undefined;
 		isochronesShown = false;
 		mobileDetailsOpen = true;
 		updateAddressQueryParam(address);
 		trackEvent({
 			name: 'address_selected',
-			properties: { source, hasMunicipality: Boolean(address.kommunenavn) }
+			properties: {
+				source: source === 'history' ? 'address' : source,
+				hasMunicipality: Boolean(address.kommunenavn)
+			}
 		});
-
-		if (source === 'finn') {
-			handleShowIsochrones('walk', 'auto');
-		}
 	}
 
 	function handleMapPointSelect(point: GeonorgePoint) {
@@ -250,6 +283,88 @@
 		return [addressText, place, municipality].filter(Boolean).join(', ');
 	}
 
+	function formatAddressPlace(address: GeonorgeAddress) {
+		return [address.postnummer, address.poststed].filter(Boolean).join(' ');
+	}
+
+	function addressHistoryKey(address: GeonorgeAddress) {
+		return [
+			address.kommunenummer,
+			address.adressekode,
+			address.nummer,
+			address.bokstav,
+			address.postnummer,
+			address.representasjonspunkt?.lat,
+			address.representasjonspunkt?.lon
+		]
+			.filter((value) => value !== undefined && value !== null && value !== '')
+			.join('-');
+	}
+
+	function isHistoryEligibleAddress(address: GeonorgeAddress) {
+		const addressText = address.adressetekst ?? address.adressetekstutenadressetilleggsnavn;
+
+		return Boolean(
+			addressText &&
+			addressText !== MAP_POINT_LABEL &&
+			address.representasjonspunkt &&
+			(address.adressekode || address.postnummer || address.kommunenummer)
+		);
+	}
+
+	function createHistoryItem(address: GeonorgeAddress): AddressSearchHistoryItem {
+		return {
+			key: addressHistoryKey(address) || formatAddress(address),
+			label: formatAddress(address),
+			secondaryLabel: formatAddressPlace(address) || address.kommunenavn || 'Adresse',
+			address
+		};
+	}
+
+	function rememberAddressSearch(address: GeonorgeAddress) {
+		const item = createHistoryItem(address);
+		const nextHistory = [
+			item,
+			...searchHistory.filter((historyItem) => historyItem.key !== item.key)
+		].slice(0, SEARCH_HISTORY_LIMIT);
+
+		searchHistory = nextHistory;
+		saveSearchHistory(nextHistory);
+	}
+
+	function loadSearchHistory() {
+		try {
+			const rawHistory = globalThis.localStorage.getItem(SEARCH_HISTORY_STORAGE_KEY);
+			if (!rawHistory) {
+				return [];
+			}
+
+			const parsed = JSON.parse(rawHistory) as Partial<AddressSearchHistoryItem>[];
+
+			return parsed
+				.filter(
+					(item): item is AddressSearchHistoryItem =>
+						typeof item.key === 'string' &&
+						typeof item.label === 'string' &&
+						typeof item.secondaryLabel === 'string' &&
+						Boolean(item.address) &&
+						isHistoryEligibleAddress(item.address as GeonorgeAddress)
+				)
+				.slice(0, SEARCH_HISTORY_LIMIT);
+		} catch (error) {
+			console.warn('Could not load address search history', error);
+			return [];
+		}
+	}
+
+	function saveSearchHistory(history: AddressSearchHistoryItem[]) {
+		try {
+			globalThis.localStorage.setItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(history));
+		} catch (error) {
+			console.warn('Could not save address search history', error);
+		}
+	}
+
 	function handleShowIsochrones(
 		mode: IsochroneModeId,
 		source: 'button' | 'auto' | 'map' = 'button'
@@ -348,18 +463,63 @@
 				</div>
 			{/if}
 
-			<div style="margin-top: {selectedAddress ? '0' : '14px'};">
-				{#if !selectedAddress}
-					<div class="lbl">Adresse</div>
-				{/if}
-				{#key selectedAddress ? (selectedAddress.representasjonspunkt ? `${selectedAddress.representasjonspunkt.lat},${selectedAddress.representasjonspunkt.lon}` : formatAddress(selectedAddress)) : ''}
-					<AddressLookup
-						defaultQuery={selectedAddress ? formatAddress(selectedAddress) : ''}
-						onQueryInput={() => (mobileDetailsOpen = false)}
-						onSelect={handleAddressSelect}
-					/>
-				{/key}
+			<div class="search-tabs" role="tablist" aria-label="Søkepanel">
+				<button
+					type="button"
+					role="tab"
+					class:active={activeSearchPanel === 'search'}
+					aria-selected={activeSearchPanel === 'search'}
+					aria-controls="address-search-panel"
+					onclick={() => (activeSearchPanel = 'search')}
+				>
+					Søk
+				</button>
+				<button
+					type="button"
+					role="tab"
+					class:active={activeSearchPanel === 'history'}
+					aria-selected={activeSearchPanel === 'history'}
+					aria-controls="address-history-panel"
+					onclick={() => (activeSearchPanel = 'history')}
+				>
+					Sist brukt
+					{#if searchHistory.length > 0}
+						<span>{searchHistory.length}</span>
+					{/if}
+				</button>
 			</div>
+
+			{#if activeSearchPanel === 'search'}
+				<div id="address-search-panel" role="tabpanel">
+					{#if !selectedAddress}
+						<div class="lbl">Adresse</div>
+					{/if}
+					{#key selectedAddress ? (selectedAddress.representasjonspunkt ? `${selectedAddress.representasjonspunkt.lat},${selectedAddress.representasjonspunkt.lon}` : formatAddress(selectedAddress)) : ''}
+						<AddressLookup
+							defaultQuery={selectedAddress ? formatAddress(selectedAddress) : ''}
+							onQueryInput={() => (mobileDetailsOpen = false)}
+							onSelect={handleAddressSelect}
+						/>
+					{/key}
+				</div>
+			{:else}
+				<div id="address-history-panel" role="tabpanel" class="history-panel">
+					{#if searchHistory.length > 0}
+						<ul>
+							{#each searchHistory as item (item.key)}
+								<li>
+									<button type="button" onclick={() => handleHistorySelect(item)}>
+										<span class="history-label">{item.label}</span>
+										<span class="history-meta">{item.secondaryLabel}</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p>Adresser du velger fra søk vises her.</p>
+					{/if}
+				</div>
+			{/if}
 
 			{#if isochroneError}
 				<p class="error-msg">{isochroneError}</p>
@@ -468,6 +628,120 @@
 
 	.search-card {
 		padding: 16px;
+	}
+
+	.search-tabs {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4px;
+		margin: 14px 0 12px;
+		padding: 4px;
+		border-radius: 10px;
+		background: #f5f4ee;
+	}
+
+	.search-tabs button {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		border: 0;
+		border-radius: 7px;
+		background: transparent;
+		color: #7e7c73;
+		font-family: 'DM Sans', sans-serif;
+		font-size: 12px;
+		font-weight: 800;
+		line-height: 1;
+		padding: 8px 10px;
+		cursor: pointer;
+		transition:
+			background 0.12s,
+			color 0.12s,
+			box-shadow 0.12s;
+	}
+
+	.search-tabs button.active {
+		background: #fffefc;
+		color: #1a1a18;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	}
+
+	.search-tabs span {
+		display: inline-flex;
+		min-width: 18px;
+		height: 18px;
+		align-items: center;
+		justify-content: center;
+		border-radius: 999px;
+		background: #f5b800;
+		color: #1a1a18;
+		font-size: 10px;
+		font-weight: 900;
+	}
+
+	.history-panel ul {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.history-panel button {
+		width: 100%;
+		border: 1px solid #e5e4de;
+		border-radius: 9px;
+		background: #fafaf6;
+		color: #1a1a18;
+		cursor: pointer;
+		font-family: 'DM Sans', sans-serif;
+		padding: 10px 11px;
+		text-align: left;
+		transition:
+			background 0.12s,
+			border-color 0.12s;
+	}
+
+	.history-panel button:hover,
+	.history-panel button:focus-visible {
+		border-color: #f5b800;
+		background: #fff;
+		outline: none;
+	}
+
+	.history-label,
+	.history-meta {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.history-label {
+		font-size: 12.5px;
+		font-weight: 800;
+		line-height: 1.25;
+	}
+
+	.history-meta {
+		margin-top: 3px;
+		color: #8b8a81;
+		font-size: 11px;
+		font-weight: 600;
+	}
+
+	.history-panel p {
+		margin: 0;
+		border: 1px dashed #d6d4cb;
+		border-radius: 9px;
+		background: #fafaf6;
+		color: #8b8a81;
+		font-size: 12px;
+		line-height: 1.45;
+		padding: 12px;
 	}
 
 	.details-toggle {
@@ -625,6 +899,10 @@
 			position: relative;
 			pointer-events: auto;
 			padding: 12px;
+		}
+
+		.search-tabs {
+			margin-top: 10px;
 		}
 
 		.search-card:focus-within {
