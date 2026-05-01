@@ -31,6 +31,8 @@
 	const highlightedFields = $derived(
 		[...priceFields, ...keyFields].filter((field) => priorityLabels.has(field.label)).slice(0, 6)
 	);
+	const summaryFields = $derived(highlightedFields.slice(0, 3));
+	const secondaryHighlightedFields = $derived(highlightedFields.slice(3));
 	const detailFields = $derived(
 		[...priceFields, ...keyFields].filter(
 			(field) => !highlightedFields.some((h) => fieldsMatch(h, field))
@@ -42,17 +44,32 @@
 	}
 </script>
 
-{#if listing.imageUrl}
-	<img class="listing-image" src={listing.imageUrl} alt="" />
-{/if}
+<article class="listing-summary">
+	{#if listing.imageUrl}
+		<img class="listing-image" src={listing.imageUrl} alt="" />
+	{/if}
 
-{#if listing.title}
-	<h3 class="listing-title">{listing.title}</h3>
-{/if}
+	<div class="listing-copy">
+		{#if listing.title}
+			<h3 class="listing-title">{listing.title}</h3>
+		{/if}
 
-{#if highlightedFields.length}
+		{#if summaryFields.length}
+			<div class="summary-grid">
+				{#each summaryFields as field (`summary-${field.label}-${field.value}`)}
+					<div class="summary-pill">
+						<span>{field.label}</span>
+						<strong>{field.value}</strong>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
+</article>
+
+{#if secondaryHighlightedFields.length}
 	<div class="highlight-grid">
-		{#each highlightedFields as field (`${field.label}-${field.value}`)}
+		{#each secondaryHighlightedFields as field (`${field.label}-${field.value}`)}
 			<div class="highlight-cell">
 				<div class="field-label">{field.label}</div>
 				<div class="highlight-value">{field.value}</div>
@@ -80,24 +97,64 @@
 </a>
 
 <style>
+	.listing-summary {
+		display: grid;
+		grid-template-columns: 92px minmax(0, 1fr);
+		gap: 10px;
+		align-items: stretch;
+		margin-bottom: 10px;
+	}
 	.listing-image {
 		width: 100%;
-		aspect-ratio: 5 / 2;
+		height: 100%;
+		min-height: 86px;
 		object-fit: cover;
 		border-radius: 9px;
-		margin-bottom: 10px;
 		background: #f5f4ee;
 	}
+	.listing-copy {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+	}
 	.listing-title {
-		margin: 0 0 10px;
+		margin: 0;
 		font-size: 13px;
-		line-height: 1.4;
+		line-height: 1.3;
 		color: #1a1a18;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+	}
+	.summary-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 5px;
+	}
+	.summary-pill {
+		min-width: 0;
+		border-radius: 8px;
+		background: #f5f4ee;
+		padding: 6px 8px;
+	}
+	.summary-pill span {
+		display: block;
+		margin-bottom: 1px;
+		color: #a8a79e;
+		font-size: 9px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+	.summary-pill strong {
+		display: block;
+		color: #1a1a18;
+		font-size: 12px;
+		line-height: 1.2;
+		overflow-wrap: anywhere;
 	}
 	.highlight-grid {
 		display: grid;
@@ -177,5 +234,15 @@
 	}
 	.finn-link:hover {
 		background: #f0efe9;
+	}
+
+	@media (max-width: 640px) {
+		.listing-summary {
+			grid-template-columns: 84px minmax(0, 1fr);
+		}
+
+		.highlight-grid {
+			display: none;
+		}
 	}
 </style>

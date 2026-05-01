@@ -15,6 +15,7 @@
 		debounceMs?: number;
 		treffPerSide?: number;
 		kommunenummer?: string;
+		onQueryInput?: () => void;
 		onSelect?: (
 			address: GeonorgeAddress,
 			context?: { source: 'address' | 'finn'; listing?: FinnListingInfo }
@@ -28,6 +29,7 @@
 		debounceMs = 250,
 		treffPerSide = 8,
 		kommunenummer,
+		onQueryInput,
 		onSelect
 	}: Props = $props();
 
@@ -255,6 +257,7 @@
 			{placeholder}
 			autocomplete="street-address"
 			bind:value={query}
+			oninput={onQueryInput}
 		/>
 		{#if isLoading}
 			<span
@@ -302,7 +305,7 @@
 				{/each}
 			</ul>
 		</div>
-	{:else if query.trim().length >= minLength && !isLoading && !errorMessage}
+	{:else if query.trim().length >= minLength && query.trim() !== selectedQuery && !selectedAddress && !isLoading && !errorMessage}
 		<p class="mt-2.5 text-xs text-[var(--color-paper-muted)]">Ingen adresser funnet.</p>
 	{/if}
 </section>
