@@ -213,7 +213,7 @@
 				properties: {
 					mode,
 					result: 'failure',
-					errorCode: analyticsErrorCode(err, 'TARGOMO_ISOCHRONE_FAILED')
+					errorCode: analyticsErrorCode(err, 'TRAVELTIME_ISOCHRONE_FAILED')
 				}
 			});
 		} finally {
@@ -312,7 +312,7 @@
 				properties: {
 					mode: config.id,
 					result: 'failure',
-					errorCode: analyticsErrorCode(err, 'TARGOMO_ISOCHRONE_FAILED')
+					errorCode: analyticsErrorCode(err, 'TRAVELTIME_ISOCHRONE_FAILED')
 				}
 			});
 			return null;
@@ -486,7 +486,7 @@
 		const message = err instanceof Error ? err.message : String(err);
 		return (
 			message.includes('429') ||
-			message.includes('TARGOMO_ISOCHRONE_RATE_LIMITED') ||
+			message.includes('TRAVELTIME_ISOCHRONE_RATE_LIMITED') ||
 			message.toLowerCase().includes('rate limit')
 		);
 	}
@@ -497,7 +497,10 @@
 			return config.rateLimitMessage;
 		}
 
-		if (message.includes('TARGOMO_API_KEY_MISSING')) {
+		if (
+			message.includes('TRAVELTIME_API_KEY_MISSING') ||
+			message.includes('TRAVELTIME_APP_ID_MISSING')
+		) {
 			return 'Karttjenesten mangler konfigurasjon i backend-miljoet.';
 		}
 

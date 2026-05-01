@@ -1,38 +1,28 @@
 // convex/isochrones.ts
 import { action } from './_generated/server';
 import { v } from 'convex/values';
-import {
-	ISOCHRONE_MODES_BY_ID,
-	getTargomoPreset,
-	type IsochroneModeId,
-	type TargomoPreset
-} from '../lib/isochrones/modes';
-import { api } from './_generated/api';
+import { ISOCHRONE_MODES_BY_ID } from '../lib/isochrones/modes';
 
-const TARGOMO_BASE = 'https://api.targomo.com/westcentraleurope/v1';
+const TRAVELTIME_BASE = 'https://api.traveltimeapp.com/v4';
 const MAX_CONTOUR_MINUTES = 120;
 const MAX_CONTOUR_COUNT = 10;
-const TRANSIT_FRAME_DURATION_SECONDS = 7200;
-const TRANSIT_MAX_TRANSFERS = 3;
-const SUPPORTED_TARGOMO_MODES = [
-	'walk',
-	'bike',
-	'car',
-	'transit',
-	'walktransit',
-	'biketransit',
-	'multiModal'
+const FEATURE_VALUE_KEYS = [
+	'value',
+	'time',
+	'travelTime',
+	'travel_time',
+	'cost',
+	'edgeWeight'
 ] as const;
-const FEATURE_VALUE_KEYS = ['value', 'time', 'travelTime', 'cost', 'edgeWeight'] as const;
 const CONTOUR_HINT_KEYS = ['range', 'contour'] as const;
 
 type ProviderErrorCode =
-	| 'TARGOMO_API_KEY_MISSING'
-	| 'TARGOMO_ISOCHRONE_FAILED'
-	| 'TARGOMO_ISOCHRONE_INVALID_COORDINATES'
-	| 'TARGOMO_ISOCHRONE_INVALID_RANGES'
-	| 'TARGOMO_ISOCHRONE_RATE_LIMITED'
-	| 'TARGOMO_ISOCHRONE_UNSUPPORTED_MODE';
+	| 'TRAVELTIME_API_KEY_MISSING'
+	| 'TRAVELTIME_APP_ID_MISSING'
+	| 'TRAVELTIME_ISOCHRONE_FAILED'
+	| 'TRAVELTIME_ISOCHRONE_INVALID_COORDINATES'
+	| 'TRAVELTIME_ISOCHRONE_INVALID_RANGES'
+	| 'TRAVELTIME_ISOCHRONE_RATE_LIMITED';
 
 type GeoJsonFeatureCollection = {
 	type?: string;
@@ -43,14 +33,6 @@ type GeoJsonFeatureCollection = {
 	}>;
 };
 
-type TargomoIsochroneArgs = {
-	lat: number;
-	lon: number;
-	minutes: readonly number[];
-	preset: TargomoPreset;
-	appMode: IsochroneModeId;
-};
-
 export const getIsochrone = action({
 	args: {
 		lat: v.number(),
@@ -59,87 +41,107 @@ export const getIsochrone = action({
 			v.literal('walk'),
 			v.literal('transit'),
 			v.literal('driving'),
-			v.literal('cycling'),
-			v.literal('cyclingTransit')
+			v.literal('cycling')
 		)
 	},
-	handler: async (ctx, args): Promise<string> => {
-		const useBiketransit: boolean = await ctx.runQuery(api.featureFlags.isEnabled, {
-			name: 'isochrones.useBiketransit',
-			defaultValue: false
-		});
-		const preset = getTargomoPreset(ISOCHRONE_MODES_BY_ID[args.mode], { useBiketransit });
+	handler: async (_, args): Promise<string> => {
+		const mode = ISOCHRONE_MODES_BY_ID[args.mode];
 		return JSON.stringify(
-			await fetchTargomoIsochrone({
+			await fetchTravelTimeIsochrone({
 				lat: args.lat,
 				lon: args.lon,
-				preset,
-				minutes: preset.minutes,
-				appMode: args.mode
+				minutes: mode.bands.map((band) => band.minutes),
+				appMode: args.mode,
+				providerMode: mode.travelTimeMode
 			})
 		);
 	}
 });
 
-async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: TargomoIsochroneArgs) {
+async function fetchTravelTimeIsochrone({
+	lat,
+	lon,
+	minutes,
+	appMode,
+	providerMode
+}: {
+	lat: number;
+	lon: number;
+	minutes: readonly number[];
+	appMode: string;
+	providerMode: string;
+}) {
 	validateCoordinates(lat, lon);
-	validatePreset(preset);
 
 	const ranges = normalizeRanges(minutes);
 	if (ranges.length === 0) {
-		throw stableProviderError('TARGOMO_ISOCHRONE_INVALID_RANGES');
+		throw stableProviderError('TRAVELTIME_ISOCHRONE_INVALID_RANGES');
 	}
 
-	const apiKey = process.env.TARGOMO_API_KEY;
+	const appId = process.env.TRAVELTIME_APP_ID;
+	if (!appId) {
+		throw stableProviderError('TRAVELTIME_APP_ID_MISSING');
+	}
+
+	const apiKey = process.env.TRAVELTIME_API_KEY;
 	if (!apiKey) {
-		throw stableProviderError('TARGOMO_API_KEY_MISSING');
+		throw stableProviderError('TRAVELTIME_API_KEY_MISSING');
 	}
 
-	const values = ranges.map((minute) => minute * 60);
-	const frame = nextTuesdayMorning();
-	const logContext = summarizeRequest({ appMode, preset, minutes: ranges, frame });
 	const startedAt = Date.now();
+	const logContext = {
+		appMode,
+		providerMode,
+		minutes: ranges,
+		contourCount: ranges.length,
+		maxMinutes: ranges.at(-1)
+	};
 	const payload = {
-		sources: [
-			{
-				lat,
-				lng: lon,
-				id: 'origin',
-				tm: buildTravelModePayload(preset, frame)
-			}
-		],
-		polygon: { serializer: 'geojson', srid: 4326, values },
-		maxEdgeWeight: values[values.length - 1]
+		arrival_searches: {
+			one_to_many: ranges.map((minute) => ({
+				id: travelTimeSearchId(minute),
+				coords: { lat, lng: lon },
+				transportation: { type: providerMode },
+				arrival_time_period: 'weekday_morning',
+				travel_time: minute * 60,
+				no_holes: true
+			}))
+		}
 	};
 
-	console.log('[isochrones.getIsochrone] fetching Targomo', logContext);
+	console.log('[isochrones.getIsochrone] fetching TravelTime', logContext);
 
 	let res: Response;
 	try {
-		res = await fetch(`${TARGOMO_BASE}/polygon_post?key=${encodeURIComponent(apiKey)}`, {
+		res = await fetch(`${TRAVELTIME_BASE}/time-map/fast`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: {
+				'Content-Type': 'application/json',
+				Accept: 'application/geo+json',
+				'X-Application-Id': appId,
+				'X-Api-Key': apiKey
+			},
 			body: JSON.stringify(payload)
 		});
 	} catch (error) {
-		logProviderFailure('TARGOMO_ISOCHRONE_FAILED', {
+		logProviderFailure('TRAVELTIME_ISOCHRONE_FAILED', {
 			error,
 			context: logContext
 		});
-		throw stableProviderError('TARGOMO_ISOCHRONE_FAILED');
+		throw stableProviderError('TRAVELTIME_ISOCHRONE_FAILED');
 	}
 
-	console.log('[isochrones.getIsochrone] Targomo response', {
+	console.log('[isochrones.getIsochrone] TravelTime response', {
 		status: res.status,
 		ok: res.ok,
 		appMode,
-		providerMode: describePreset(preset).providerMode,
-		travelTypes: describePreset(preset).travelTypes,
+		providerMode,
 		durationMs: Date.now() - startedAt
 	});
 
 	if (!res.ok) {
-		const code = res.status === 429 ? 'TARGOMO_ISOCHRONE_RATE_LIMITED' : 'TARGOMO_ISOCHRONE_FAILED';
+		const code =
+			res.status === 429 ? 'TRAVELTIME_ISOCHRONE_RATE_LIMITED' : 'TRAVELTIME_ISOCHRONE_FAILED';
 		logProviderFailure(code, {
 			status: res.status,
 			bodySnippet: await readSanitizedBodySnippet(res),
@@ -151,10 +153,9 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: Tar
 
 	try {
 		const raw = await res.json();
-		const geojson = raw && typeof raw === 'object' && 'data' in raw ? raw.data : raw;
-		const normalized = normalizeTargomoGeojson(geojson, ranges);
+		const normalized = normalizeTravelTimeGeojson(raw, ranges);
 		console.log('[isochrones.getIsochrone] completed', {
-			provider: 'Targomo',
+			provider: 'TravelTime',
 			result: 'success',
 			appMode,
 			featureCount: normalized.features.length,
@@ -162,12 +163,12 @@ async function fetchTargomoIsochrone({ lat, lon, minutes, preset, appMode }: Tar
 		});
 		return normalized;
 	} catch (error) {
-		logProviderFailure('TARGOMO_ISOCHRONE_FAILED', {
+		logProviderFailure('TRAVELTIME_ISOCHRONE_FAILED', {
 			error,
 			context: { ...logContext, phase: 'parse' },
 			durationMs: Date.now() - startedAt
 		});
-		throw stableProviderError('TARGOMO_ISOCHRONE_FAILED');
+		throw stableProviderError('TRAVELTIME_ISOCHRONE_FAILED');
 	}
 }
 
@@ -180,25 +181,7 @@ function validateCoordinates(lat: number, lon: number) {
 		lon < -180 ||
 		lon > 180
 	) {
-		throw stableProviderError('TARGOMO_ISOCHRONE_INVALID_COORDINATES');
-	}
-}
-
-function validatePreset(preset: TargomoPreset) {
-	if (preset.kind === 'single') {
-		if (!SUPPORTED_TARGOMO_MODES.includes(preset.targomoMode)) {
-			throw stableProviderError('TARGOMO_ISOCHRONE_UNSUPPORTED_MODE');
-		}
-		return;
-	}
-
-	if (
-		preset.travelTypes.length === 0 ||
-		preset.travelTypes.some(
-			(travelType) => !['walk', 'bike', 'car', 'transit'].includes(travelType)
-		)
-	) {
-		throw stableProviderError('TARGOMO_ISOCHRONE_UNSUPPORTED_MODE');
+		throw stableProviderError('TRAVELTIME_ISOCHRONE_INVALID_COORDINATES');
 	}
 }
 
@@ -209,50 +192,18 @@ function normalizeRanges(minutes: readonly number[]) {
 		.slice(0, MAX_CONTOUR_COUNT);
 }
 
-function buildTravelModePayload(
-	preset: TargomoPreset,
-	frame: { date: number; time: number; duration: number }
-) {
-	if (preset.kind === 'multiModal') {
-		return {
-			multiModal: {
-				frame,
-				maxTransfers: TRANSIT_MAX_TRANSFERS,
-				travelTypes: [...preset.travelTypes]
-			}
-		};
-	}
-
-	const mode = preset.targomoMode;
-	if (mode === 'transit' || mode === 'walktransit' || mode === 'biketransit') {
-		return {
-			[mode]: {
-				frame,
-				maxTransfers: TRANSIT_MAX_TRANSFERS
-			}
-		};
-	}
-
-	return { [mode]: {} };
-}
-
-function normalizeTargomoGeojson(geojson: unknown, ranges: number[]) {
+function normalizeTravelTimeGeojson(geojson: unknown, ranges: number[]) {
 	if (!isFeatureCollection(geojson)) {
-		throw new Error('Targomo response was not a GeoJSON FeatureCollection');
+		throw new Error('TravelTime response was not a GeoJSON FeatureCollection');
 	}
 
 	const fallbackValues = [...ranges].sort((a, b) => a - b).map((minute) => minute * 60);
-	const requestedMinuteSet = new Set(ranges);
-	const requestedSecondSet = new Set(fallbackValues);
 	return {
 		...geojson,
 		features: geojson.features.map((feature, index) => {
 			const props = feature.properties ?? {};
 			const value =
-				readFeatureValue(props, requestedMinuteSet, requestedSecondSet) ??
-				fallbackValues[index] ??
-				fallbackValues.at(-1) ??
-				0;
+				readTravelTimeFeatureValue(props) ?? fallbackValues[index] ?? fallbackValues.at(-1) ?? 0;
 
 			return {
 				...feature,
@@ -263,6 +214,23 @@ function normalizeTargomoGeojson(geojson: unknown, ranges: number[]) {
 			};
 		})
 	};
+}
+
+function readTravelTimeFeatureValue(properties: Record<string, unknown>) {
+	const value = readFeatureValue(properties, new Set(), new Set());
+	if (value !== undefined) {
+		return value;
+	}
+
+	const searchId = properties.search_id;
+	if (typeof searchId === 'string') {
+		const match = /^iso-(\d+)$/.exec(searchId);
+		if (match) {
+			return Number(match[1]);
+		}
+	}
+
+	return undefined;
 }
 
 function readFeatureValue(
@@ -317,50 +285,8 @@ function readNumericProperty(value: unknown) {
 	return undefined;
 }
 
-// Returns the next Tuesday as YYYYMMDD integer and 08:00 as seconds past midnight.
-// Tuesday avoids weekend/Monday-anomaly schedules.
-function nextTuesdayMorning(): { date: number; time: number; duration: number } {
-	const now = new Date();
-	const daysUntil = (2 - now.getUTCDay() + 7) % 7 || 7;
-	const tuesday = new Date(
-		Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntil)
-	);
-	const y = tuesday.getUTCFullYear();
-	const m = String(tuesday.getUTCMonth() + 1).padStart(2, '0');
-	const d = String(tuesday.getUTCDate()).padStart(2, '0');
-	return { date: Number(`${y}${m}${d}`), time: 28800, duration: TRANSIT_FRAME_DURATION_SECONDS };
-}
-
-function summarizeRequest(args: {
-	appMode: IsochroneModeId;
-	preset: TargomoPreset;
-	minutes: number[];
-	frame: { date: number; time: number; duration: number };
-}) {
-	const descriptor = describePreset(args.preset);
-	return {
-		appMode: args.appMode,
-		providerMode: descriptor.providerMode,
-		travelTypes: descriptor.travelTypes,
-		minutes: args.minutes,
-		contourCount: args.minutes.length,
-		maxMinutes: args.minutes.at(-1),
-		frame: args.frame
-	};
-}
-
-function describePreset(preset: TargomoPreset) {
-	if (preset.kind === 'multiModal') {
-		return {
-			providerMode: 'multiModal' as const,
-			travelTypes: [...preset.travelTypes]
-		};
-	}
-
-	return {
-		providerMode: preset.targomoMode,
-		travelTypes: undefined
-	};
+function travelTimeSearchId(minute: number) {
+	return `iso-${minute * 60}`;
 }
 
 function isFeatureCollection(value: unknown): value is GeoJsonFeatureCollection & {
@@ -391,6 +317,8 @@ function sanitizeProviderSnippet(value: string) {
 		.replace(/("?(?:access[_-]?token|api[_-]?key|key)"?\s*:\s*")[^"]+(")/gi, '$1[redacted]$2')
 		.replace(/("?(?:lat|lon|lng|latitude|longitude)"?\s*:\s*)-?\d+(?:\.\d+)?/gi, '$1[redacted]')
 		.replace(/([?&](?:access_token|key)=)[^&\s]+/gi, '$1[redacted]')
+		.replace(/(X-Api-Key:?\s*)[A-Za-z0-9._-]+/gi, '$1[redacted]')
+		.replace(/(X-Application-Id:?\s*)[A-Za-z0-9._-]+/gi, '$1[redacted]')
 		.replace(/\bBearer\s+[A-Za-z0-9._-]+\b/gi, 'Bearer [redacted]')
 		.replace(/\s+/g, ' ')
 		.trim()
@@ -409,7 +337,7 @@ function logProviderFailure(
 ) {
 	const error = details.error instanceof Error ? details.error.message : details.error;
 	console.warn('[isochrones.providerFailure]', {
-		provider: 'Targomo',
+		provider: 'TravelTime',
 		code,
 		status: details.status,
 		bodySnippet: details.bodySnippet,

@@ -36,8 +36,7 @@
 		walk: PersonSimpleWalk,
 		transit: Bus,
 		driving: Car,
-		cycling: Bicycle,
-		cyclingTransit: Bicycle
+		cycling: Bicycle
 	} satisfies Record<IsochroneModeId, typeof PersonSimpleWalk>;
 
 	function formatAddressSubtitle(address: GeonorgeAddress) {
@@ -84,11 +83,6 @@
 				>
 					{#if isLoading && activeMode === mode.id}
 						<Spinner class="size-3.5" />
-					{:else if mode.id === 'cyclingTransit'}
-						<span class="combo-icons" aria-hidden="true">
-							<Bicycle size={15} weight="bold" />
-							<Bus size={15} weight="bold" />
-						</span>
 					{:else}
 						<Icon size={16} weight="bold" />
 					{/if}
@@ -155,12 +149,6 @@
 	:global(.mode-button) {
 		min-width: 0;
 		height: 36px;
-	}
-	.combo-icons {
-		display: inline-flex;
-		align-items: center;
-		gap: 1px;
-		flex-shrink: 0;
 	}
 	.finn-section {
 		padding: 14px 16px 16px;
